@@ -1,0 +1,278 @@
+#!/usr/bin/env python
+#
+# Copyright (c) STMicroelectronics 2014
+#
+# This file is part of repo-mirror.
+#
+# repo-mirror is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License v2.0
+# as published by the Free Software Foundation
+#
+# repo-mirror is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# v2.0 along with repo-mirror. If not, see <http://www.gnu.org/licenses/>.
+#
+#
+# Usage: get usage with repo-mirror -h
+#
+
+import sys
+
+# Fail early if python version is not supported
+def check_python_version():
+    try:
+        assert sys.hexversion >= 0x02060000
+        assert sys.hexversion < 0x03000000
+    except:  # pragma: fatal
+        print >>sys.stderr, \
+            'repo-mirror: error: python version >= 2.6 is required'
+        sys.exit(1)
+check_python_version()
+
+import os, subprocess, signal, fcntl, errno, optparse, time, hashlib, logging, tempfile
+
+# Update VERSION for major.minor.patch releases.
+# The sha1sum will be appended to the version string.
+VERSION="0.1.0"
+
+class ExitCodes:
+    """ Exit codes used to feedback the parent process.
+    This codes are aligned with the coreutils timeout implementation.
+    """
+    TIMEDOUT = 124  # semaphore timed out
+    CANCELED = 125  # internal error
+    CANNOT_INVOKE = 126  # error executing job
+    ENOENT = 127  # couldn't find job to exec
+
+
+class LocalOptionParser(optparse.OptionParser):
+    """
+    Overrides OptionParser.
+    Exits with the correct code on error.
+    Overrides version output.
+    """
+    def __init__(self):
+        optparse.OptionParser.__init__(
+            self, prog="repo-mirror",
+            description="repo-mirror utility, "
+            "run a command in mutual exclusion.",
+            usage="%prog [options] -- REPO_COMMAND..."
+        )
+
+    def parse_args(self):
+        opts, args = optparse.OptionParser.parse_args(self)
+        return self.process_args(opts, args)
+
+    @staticmethod
+    def handle_version(option, opt, value, parser):
+        with open(__file__) as f:
+            sha1 = hashlib.sha1(f.read()).hexdigest()
+        print "%s version %s [sha1:%s]" % (parser.prog, VERSION, sha1)
+        parser.exit(0)
+
+    def process_args(self, opts, args):
+        """
+        Process parsed args into suitable form after some checks.
+        Return a single namespace with all arguments.
+        """
+        if opts.timeout < 0:
+            self.exit(1, "%s: error: invalid timeout argument: %d\n" %
+                      (self.prog, opts.timeout))
+        if len(args) < 1:
+            self.exit(1, "%s: error: missing command\n" % self.prog)
+        opts.command = args[0]
+        opts.arguments = args[1:]
+        return opts
+
+    def exit(self, status=0, message=None):  # pragma: uncovered
+        """ Always exit with status CANCELED on error. """
+        if status != 0:
+            status = ExitCodes.CANCELED
+        optparse.OptionParser.exit(self, status, message)
+
+
+parser = LocalOptionParser()
+
+parser.add_option("-m", "--mirror-dir",
+                  help="repo mirror dir")
+parser.add_option("-i", "--id",
+                  default="default",
+                  help="identifier for repo project. Default: default")
+parser.add_option("-r", "--repo",
+                  default="repo",
+                  help="repo executable. Default: repo")
+parser.add_option("-j", "--jobs",
+                  type=int, default=0,
+                  help="repo mirror sync jobs")
+parser.add_option("-q", "--quiet",
+                  action="store_true",
+                  help="repo mirror sync quiet option")
+parser.add_option("-t", "--timeout",
+                  type=int, default=0,
+                  help="UNIMPLEMENTED. delay for waiting on the semaphore. Default: 0")
+parser.add_option("-v", "--version",
+                  help="output version string",
+                  action="callback",
+                  callback=parser.handle_version)
+parser.add_option("-d", "--debug",
+                  help="debug mode",
+                  action="store_true")
+parser.add_option("--log-file",
+                  default="&stderr",
+                  help="log file, &stderr if not specified")
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+
+def clean_rec(dst):
+    if os.path.exists(dst):
+        subprocess.call(['rm', '-rf', dst])
+    return 0
+
+class Lock:
+    """ Cross process lock. Note that this works on NFS """
+    """ mounts only from the same system. """
+    def __init__(self, filename, logger=None):
+        self.filename = filename
+        self.logger = logger
+        self.handle = None
+        if self.logger: self.logger.debug("creating lock %s..." % self.filename)
+        mkdir_p(os.path.dirname(filename))
+        self.handle = open(filename, 'w')
+
+    def acquire(self):
+        if self.logger: self.logger.debug("acquiring lock %s..." % self.filename)
+        fcntl.flock(self.handle, fcntl.LOCK_EX)
+
+    def release(self):
+        if self.logger: self.logger.debug("releasing lock %s." % self.filename)
+        fcntl.flock(self.handle, fcntl.LOCK_UN)
+
+    def __del__(self):
+        if self.handle: self.handle.close()
+
+class Monitor():
+    """ Monitor class for the mutual exclusion. """
+    def __init__(self, args):
+        """ Constructor, arguments are stored into the args object. """
+        self.args = args
+
+    @staticmethod
+    def interrupt_handler(signum, frame):  # pragma: uncovered
+        """ Handler for signals that require immediate exit. """
+        print >>sys.stderr, \
+            "repo-mirror: interrupted by signal %d" % signum
+        sys.exit(128 + signum)
+
+    def run(self):
+
+        # Setup logger
+        log_fmt = "%(levelname)s: %(name)s: %(process)d: %(message)s"
+        log_lvl = logging.DEBUG if args.debug else logging.INFO
+        if self.args.log_file == "&stderr":
+            log_stream = sys.stderr
+        elif self.args.log_file == "&stdout":
+            log_stream = sys.stdout
+        else:
+            try:
+                log_stream = open(args.log_file, "a", 1)
+            except IOError as e:
+                print >>sys.stderr, \
+                    "repo-mirror: error:: can't open log file: %s" % str(e)
+                return ExitCodes.CANNOT_INVOKE
+        logging.basicConfig(stream = log_stream, level = log_lvl,
+                            format = log_fmt)
+        logger = logging.getLogger("repo-mirror")
+
+        # Setup handler for ^C
+        signal.signal(signal.SIGINT, self.interrupt_handler)
+
+	if self.args.command != "init" or self.args.mirror_dir == None:
+            command_args = ([self.args.repo, self.args.command] +
+                            self.args.arguments)
+            try:
+                logger.debug("executing %s..." % " ".join(command_args))
+                self.proc = subprocess.Popen(command_args)
+                code = self.proc.wait()
+            except OSError as e:
+                print >>sys.stderr, "repo-mirror: error: failed to run " \
+                    "command: %s : %s" % (e.strerror, " ".join(command_args))
+                if e.errno == errno.ENOENT:
+                    return ExitCodes.ENOENT
+                else:
+                    return ExitCodes.CANNOT_INVOKE
+            return code
+
+        # Case or repo init with mirror dir...
+        # Take global lock, for creating new lock entry
+        global_lock_file = os.path.join(self.args.mirror_dir, "lock")
+        global_lock = Lock(global_lock_file, logger=logger)
+        try:
+            global_lock.acquire()
+            mirror_dir_id = os.path.join(self.args.mirror_dir, self.args.id)
+            lock_file = os.path.join(mirror_dir_id, "lock")
+            lock = Lock(lock_file, logger=logger)
+        finally:
+            global_lock.release()
+        # Take lock and init mirrored repo
+        try:
+            lock.acquire()
+            mirrors_dir = os.path.join(mirror_dir_id, "repos")
+            mkdir_p(mirrors_dir)
+            clean_rec(os.path.join(mirrors_dir, ".repo"))
+            try:
+                # Init mirrored repo
+                command_args = ([self.args.repo, "init"] +
+                                self.args.arguments +
+                                ["--mirror"] +
+                                (["--quiet"] if self.args.quiet else []))
+                logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
+                self.proc = subprocess.Popen(command_args, cwd=mirrors_dir)
+                code = self.proc.wait()
+                if code != 0: return code
+                # Sync mirrored repo
+                command_args = ([self.args.repo, "sync"] +
+                                (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
+                                (["--quiet"] if self.args.quiet else []))
+                logger.debug("sync mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
+                self.proc = subprocess.Popen(command_args, cwd=mirrors_dir)
+                code = self.proc.wait()
+                if code != 0: return code
+            except OSError as e:
+                print >>sys.stderr, "repo-mirror: error: failed to run " \
+                    "command: %s : %s" % (e.strerror, " ".join(command_args))
+                if e.errno == errno.ENOENT:
+                    return ExitCodes.ENOENT
+                else:
+                    return ExitCodes.CANNOT_INVOKE
+        finally:
+            lock.release()
+        try:
+            # Init requested repo with alternate mirror
+            command_args = ([self.args.repo, "init"] +
+                            self.args.arguments +
+                            ["--reference=%s" % mirrors_dir])
+            logger.debug("init repo: executing %s..." % " ".join(command_args))
+            self.proc = subprocess.Popen(command_args)
+            code = self.proc.wait()
+        except OSError as e:
+            print >>sys.stderr, "repo-mirror: error: failed to run " \
+                "command: %s : %s" % (e.strerror, " ".join(command_args))
+            if e.errno == errno.ENOENT:
+                return ExitCodes.ENOENT
+            else:
+                return ExitCodes.CANNOT_INVOKE
+
+        return code
+
+args = parser.parse_args()
+sys.exit(Monitor(args).run())

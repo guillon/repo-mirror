@@ -1,0 +1,106 @@
+
+# Synopsys
+
+The repo-mirror utility is a simple command for enabling automatic local
+mirroring of repo git repositories.
+
+The principle is to be able to replace the bare repo command by a repo-mirror
+command that will handle the creation of the mirror repositories and
+execute the actual repo command refering to the mirror repositories when
+doing repo init/sync in particular.
+
+For instance, in order to automatically benefit from a local shared mirror
+for all the repositories of a repo manifest, instead of executing:
+
+    $ repo init -u manifest_url.git
+    $ repo sync
+
+on can execute:
+
+    $ repo-mirror -m $HOME/.repo-mirrors -- init -u manifest_url.git
+    $ repo sync
+
+Note that a visible effect on the repo init step is that the output
+will show actually two repo init steps as it will first init/sync the mirror
+and then init/sync the current dir.
+
+The above two commands rougthly behaves as if one have typed:
+
+    $ (cd $HOME/.repo-mirrors/... && repo init --mirror -u manifest_url.git)
+    $ (cd $HOME/.repo-mirrors/... && repo sync)
+    $ repo init --reference=$HOME/.repo-mirrors/... -u manifest_url.git
+    $ repo sync
+
+Other things are actually done behind the scene such as selecting the
+actual mirrors directory and taking locks where needed to.
+
+#Download
+
+Download the last stable version of the script from there:
+https://raw.githubusercontent.com/guillon/repo-mirror/master/repo-mirror
+
+# Examples
+
+A typical usage of such a tool if for automatically setting up
+local mirrors for build scripts.
+
+For instance if the build script uses an envvar REPO (defaulting to repo)
+before each repo commands once can simply set:
+
+    $ REPO="repo-mirror -m $HOME/.repo-mirrors --"; export REPO
+    $ ./build_script.sh
+
+If one wants to make a repo command wrapper in case such envvar is not
+available, it can be done this way:
+
+    $ cat >repo <<EOF
+    #!/bin/sh
+    exec repo-mirror -m $HOME/.repo-mirrors -- ${1+"$@"}
+    EOF
+    $ PATH=$PWD:$PATH
+    $ ./build_script.sh
+
+Get the command line help with:
+
+    $ repo-mirror --help
+    Usage: repo-mirror [options] -- REPO_COMMAND...
+
+
+# Build and Install
+
+This tool requires python 2.6.x.
+
+The tool can be used directly without installation by executing
+directly repo-mirror where downloaded.
+
+A makefile is provided anyway for completion and testing purpose.
+
+Build with:
+
+    $ make all # a no-op actually
+
+Run unittests with:
+
+    $ make -j4 check
+
+Install with, for instance:
+
+    $ make install PREFIX=$HOME/local  # Default is PREFIX=/usr/local
+
+
+# References
+
+Refer to the project home page at:
+http://guillon.github.com/repo-mirror
+
+Refer to the current build and validation status at:
+https://buildhive.cloudbees.com/job/guillon/job/repo-mirror
+
+Fill issues and enhancement request at:
+https://github.com/guillon/repo-mirror/issues
+
+
+# License
+
+Refer to the COPYING file: https://github.com/guillon/repo-mirror/blob/master/COPYING
+Refer to the COPYRIGHT file: https://github.com/guillon/repo-mirror/blob/master/COPYRIGHT
