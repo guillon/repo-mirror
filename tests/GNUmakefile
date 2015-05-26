@@ -1,19 +1,19 @@
 #
 # Copyright (c) STMicroelectronics 2014
 #
-# This file is part of git-mirror.
+# This file is part of repo-mirror.
 #
-# git-mirror is free software: you can redistribute it and/or modify
+# repo-mirror is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License v2.0
 # as published by the Free Software Foundation
 #
-# git-mirror is distributed in the hope that it will be useful,
+# repo-mirror is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# v2.0 along with git-mirror. If not, see <http://www.gnu.org/licenses/>.
+# v2.0 along with repo-mirror. If not, see <http://www.gnu.org/licenses/>.
 #
 
 SHELL=/bin/sh
