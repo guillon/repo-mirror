@@ -19,8 +19,12 @@
 SHELL=/bin/sh
 REPO_MIRROR:=$(abspath ../repo-mirror)
 TESTS:=$(wildcard test*.sh)
+BINDIR=$(abspath ./bin)
 DEBUGTEST=
 V=
+
+WGET=wget
+REPO_DL_URL=http://storage.googleapis.com/git-repo-downloads/repo-1.21
 
 help:
 	@echo "usage: make TARGET [PARAMETERS]"
@@ -43,7 +47,8 @@ all: _unittests
 check: _unittests
 
 clean:
-	rm -f test*.log test*.dir
+	@echo "Cleaning temp files"
+	$(Q)rm -f *.log *.stamp *.tmp *.dir $(BINDIR)/*
 
 distclean: clean
 
@@ -51,14 +56,22 @@ _unittests: $(TESTS:%=%.chk)
 
 $(TESTS:%=%.chk): %.chk: %
 	@echo "Executing test: $*"
-	$(Q)if [ "$(DEBUGTEST)" = "" ]; then \
-	  env DEBUGTEST=$(DEBUGTEST) REPO_MIRROR=$(REPO_MIRROR) ./$*; \
-	else \
-	  res=0; \
-	  env DEBUGTEST=$(DEBUGTEST) REPO_MIRROR=$(REPO_MIRROR) ./$* || res=$$?; \
-	  [ $$res = 0 ] || cat $*.log | sed 's/^/  |/'; \
-	  exit $$res; \
-	fi
+	$(Q)env PATH="$(BINDIR):$$PATH" DEBUGTEST="$(DEBUGTEST)" REPO_MIRROR="$(REPO_MIRROR)" ./$*
+
+$(TESTS:%=%.chk):  dependencies-repo.stamp
+
+dependencies: dependencies-repo.chk
+
+dependencies-repo.chk: %.chk:
+	$(Q)rm -f $*.stamp && $(MAKE) $*.stamp
+
+dependencies-repo.stamp: %.stamp:
+	@echo "Downloading repo from $(REPO_DL_URL)"
+	$(Q)$(WGET) $(REPO_DL_URL) -O $*.tmp
+	$(Q)chmod 755 $*.tmp
+	$(Q)mkdir -p $(BINDIR)
+	$(Q)mv $*.tmp /$(BINDIR)/repo
+	$(Q)touch $*.stamp
 
 .PHONY: help all check clean distclean _unittests $(TESTS:%=%.chk)
 
