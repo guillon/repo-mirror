@@ -236,7 +236,8 @@ class Monitor():
                                 ["--mirror"] +
                                 (["--quiet"] if self.args.quiet else []))
                 logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
-                self.proc = subprocess.Popen(command_args, cwd=mirrors_dir)
+                with open(os.devnull, "rw") as devnull:
+                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
                 code = self.proc.wait()
                 if code != 0: return code
                 # Sync mirrored repo
@@ -244,7 +245,8 @@ class Monitor():
                                 (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
                                 (["--quiet"] if self.args.quiet else []))
                 logger.debug("sync mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
-                self.proc = subprocess.Popen(command_args, cwd=mirrors_dir)
+                with open(os.devnull, "rw") as devnull:
+                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
                 code = self.proc.wait()
                 if code != 0: return code
             except OSError as e:
