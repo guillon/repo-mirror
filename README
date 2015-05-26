@@ -96,7 +96,7 @@ Refer to the project home page at:
 http://guillon.github.com/repo-mirror
 
 Refer to the current build and validation status at:
-https://buildhive.cloudbees.com/job/guillon/job/repo-mirror
+https://travis-ci.org/guillon/repo-mirror
 
 Fill issues and enhancement request at:
 https://github.com/guillon/repo-mirror/issues
