@@ -19,12 +19,14 @@
 SHELL=/bin/sh
 REPO_MIRROR:=$(abspath ../repo-mirror)
 TESTS:=$(wildcard test*.sh)
-BINDIR=$(abspath ./bin)
 DEBUGTEST=
 V=
 
+BINDIR=$(abspath ./bin)
 WGET=wget
-REPO_DL_URL=http://storage.googleapis.com/git-repo-downloads/repo-1.21
+DEPENDENCIES=repo
+DL_URL_repo=http://storage.googleapis.com/git-repo-downloads/repo-1.21
+
 
 help:
 	@echo "usage: make TARGET [PARAMETERS]"
@@ -34,6 +36,7 @@ help:
 	@echo "make check     : same as make all"
 	@echo "make clean     : clean build and tests"
 	@echo "make distclean : clean evrything"
+	@echo "make dependencies : force download of all dependencies"
 	@echo
 	@echo "where PAREMETERS is one of (current values):"
 	@echo "REPO_MIRROR='$(REPO_MIRROR)' path to repo-mirror to be tested"
@@ -60,20 +63,20 @@ $(TESTS:%=%.chk): %.chk: %
 
 $(TESTS:%=%.chk):  dependencies-repo.stamp
 
-dependencies: dependencies-repo.chk
+dependencies: $(DEPENDENCIES:%=dependencies-%.chk)
 
-dependencies-repo.chk: %.chk:
-	$(Q)rm -f $*.stamp && $(MAKE) $*.stamp
+$(DEPENDENCIES:%=dependencies-%.chk): dependencies-%.chk:
+	$(Q)rm -f dependencies-$*.stamp && $(MAKE) dependencies-$*.stamp
 
-dependencies-repo.stamp: %.stamp:
-	@echo "Downloading repo from $(REPO_DL_URL)"
-	$(Q)$(WGET) $(REPO_DL_URL) -O $*.tmp
-	$(Q)chmod 755 $*.tmp
+$(DEPENDENCIES:%=dependencies-%.stamp): dependencies-%.stamp:
+	@echo "Downloading $* from $(DL_URL_$*)"
+	$(Q)$(WGET) $(DL_URL_$*) -O dependencies-$*.tmp
+	$(Q)chmod 755 dependencies-$*.tmp
 	$(Q)mkdir -p $(BINDIR)
-	$(Q)mv $*.tmp /$(BINDIR)/repo
-	$(Q)touch $*.stamp
+	$(Q)mv dependencies-$*.tmp /$(BINDIR)/$*
+	$(Q)touch dependencies-$*.stamp
 
-.PHONY: help all check clean distclean _unittests $(TESTS:%=%.chk)
+.PHONY: help all check clean distclean _unittests $(TESTS:%=%.chk) dependencies $(DEPENDENCIES:%=dependencies-%.chk)
 
 ifeq ($(V),)
 Q=@

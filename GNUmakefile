@@ -29,6 +29,7 @@ help:
 	@echo "make clean     : clean build and tests"
 	@echo "make distclean : clean everything"
 	@echo "make uninstall : uninstall from PREFIX"
+	@echo "make dependencies : force download of all dependencies"
 	@echo
 	@echo "where PAREMETERS is one of (current values):"
 	@echo "PREFIX=$(PREFIX)"
@@ -38,6 +39,9 @@ all:
 
 check: all
 	$(MAKE) -C tests check
+
+dependencies:
+	$(MAKE) -C tests dependencies
 
 clean:
 	$(MAKE) -C tests clean
@@ -53,4 +57,4 @@ install: all
 uninstall:
 	rm -f $(PREFIX)/bin/repo-mirror
 
-.PHONY: help all check clean distclean install uninstall
+.PHONY: help all check clean distclean install uninstall dependencies
