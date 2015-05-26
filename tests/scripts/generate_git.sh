@@ -59,7 +59,7 @@ git init --quiet
 echo "Test GIT tree $dir" >README
 [ $# = 0 ] || cp -a "$@" .
 git add --all
-git commit --quiet -m "$(<README)"
+git -c user.email="anonymous@anon.org" -c user.name="Anonymous" commit --quiet -m "$(<README)"
 popd >/dev/null
 
 # Push to bare git
