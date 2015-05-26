@@ -30,7 +30,7 @@ $SRCDIR/tests/scripts/generate_repo.sh repos project1 project2 project1-1:projec
 mkdir -p repo-mirrors
 mkdir -p test-repo
 cd test-repo
-$REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git
+$REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
 $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- sync 
 [ -f project1/README ]
 [ -f project2/README ]
