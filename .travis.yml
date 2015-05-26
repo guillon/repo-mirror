@@ -3,4 +3,4 @@ python:
  - "2.6"
  - "2.7"
 script:
- - env DEBUGTEST=1 make check
+ - make V=1 DEBUGTEST=1 check

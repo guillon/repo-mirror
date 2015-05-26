@@ -45,7 +45,7 @@ cleanup() {
   [ $exit = 0 -o $exit -lt 128 ] || interrupted && trap - EXIT && exit $exit
 }
 
-exec {_fd_out}>&1 {_fd_err}>&2 >"$TEST.out" 2>"$TEST.err"
+exec {_fd_out}>&1 {_fd_err}>&2 >"$TEST.log" 2>&1
 trap "cleanup" INT QUIT TERM EXIT
 
 interrupted() {
