@@ -29,7 +29,7 @@ $SRCDIR/tests/scripts/generate_repo.sh repos project1 project2 project1-1:projec
 # Repo init/sync and verify tree
 mkdir -p test-repo
 cd test-repo
-repo init -q -u file://"$TMPTEST"/repos/manifests.git
+repo init -q -u file://"$TMPTEST"/repos/manifests.git </dev/null
 repo sync -q
 [ -f project1/README ]
 [ -f project2/README ]
