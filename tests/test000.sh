@@ -23,6 +23,11 @@ source `dirname $0`/common.sh
 
 TEST_CASE="repo-mirror dependencies test"
 
+# Ouput some system infos for debug
+echo "uname -a: $(uname -a)"
+echo "free -m: $(free -m)"
+echo "cpus: $(cat /proc/cpuinfo 2>/dev/null | grep -c '^processor' || true)"
+
 # Check if net is accessible
 wget http://www.google.com -O google.html
 
