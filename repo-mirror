@@ -43,7 +43,7 @@ import os, subprocess, fcntl, errno, optparse, time, hashlib, logging, tempfile
 
 # Update VERSION for major.minor.patch releases.
 # The sha1sum will be appended to the version string.
-VERSION="0.1.0"
+VERSION="1.0.0"
 
 # Simplify writing for python 2/3 compatibility
 def printerr(msg):
