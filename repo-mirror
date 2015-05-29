@@ -86,10 +86,14 @@ class LocalOptionParser(optparse.OptionParser):
             self.exit(1, "%s: error: invalid locking scheme: %s\n" %
                       (self.prog, opts.internal_locking))
 
-        if len(args) < 1:
-            self.exit(1, "%s: error: missing command\n" % self.prog)
-        opts.command = args[0]
-        opts.arguments = args[1:]
+        if opts.clean or opts.clean_all or opts.list:
+            if len(args) > 0:
+                self.exit(1, "%s: error: unexpected additional arguments for --list or --clean or --clean-all action\n")
+        else:
+            if len(args) < 1:
+                self.exit(1, "%s: error: missing command\n" % self.prog)
+            opts.command = args[0]
+            opts.arguments = args[1:]
         return opts
 
     def exit(self, status=0, message=None):  # pragma: uncovered
@@ -105,13 +109,22 @@ parser.add_option("-m", "--mirror-dir",
                   help="repo mirror dir")
 parser.add_option("-i", "--id",
                   default="default",
-                  help="identifier for repo project. Default: default")
+                  help="optional identifier for the mirrored repo tree. The default is to mirror all trees at the same location. Default: default")
 parser.add_option("-r", "--repo",
                   default="repo",
                   help="repo executable. Default: repo")
 parser.add_option("-j", "--jobs",
                   type=int, default=0,
                   help="repo mirror sync jobs")
+parser.add_option("--list",
+                  action="store_true",
+                  help="list currently mirrorer repo trees)")
+parser.add_option("--clean",
+                  action="store_true",
+                  help="clean the repo mirror tree identified by --id (or the default)")
+parser.add_option("--clean-all",
+                  action="store_true",
+                  help="clean all existing repo mirror trees")
 parser.add_option("-q", "--quiet",
                   action="store_true",
                   help="repo mirror sync quiet option")
@@ -172,60 +185,102 @@ class ICacheLock:
     """ rootname is the root directory for the locking hierarchy """
     """ rootname does not need to be absolute/normalized and will """
     """ be unconditionally created """
-    """ dirpath is the path from the rootdir and must be normalized """
-    """ dirpath will be created on demand """
-    def __init__(self, rootname, dirpath, logger=None):
+    """ dpath is the path from the rootdir and must be normalized """
+    """ and starting with /. Such as /a/b, which will actually lock """
+    """ rootpath/a/b """
+    """ dpath will be created on demand """
+    def __init__(self, rootname, dpath, logger=None):
         """ Initialize the lock object """
         pass
     def acquire_dir(self):
-        """ Acquire a directory lock for dirpath """
+        """ Acquire a directory lock for dpath """
         pass
     def release_dir(self):
-        """ Release a directory lock for dirpath """
+        """ Release a directory lock for dpath """
         pass
 
 class CacheNoneLock(ICacheLock):
     """ Implementation of a non locked hierarchy, for test purpose """
-    def __init__(self, rootname, dirpath, logger=None):
-        assert(os.path.normpath(dirpath) == dirpath)
+    def __init__(self, rootname, dpath, logger=None):
+        assert(os.path.normpath(dpath) == dpath)
 
 
 class CachePathLock(ICacheLock):
     """ Implementation of hierarchical locking based on path """
-    """ Actually this scheme locks the parent path before """
+    """ Actually this scheme recursively locks the parent path before """
     """ acquiring the actual path lock. """
-    def __init__(self, rootname, dirpath, logger=None):
-        if logger: logger.debug("creating CachePathLock %s %s..." % (rootname, dirpath))
-        assert(os.path.normpath(dirpath) == dirpath)
+    def __init__(self, rootname, dpath, logger=None):
+        if logger: logger.debug("creating CachePathLock %s %s..." % (rootname, dpath))
+        assert(os.path.normpath(dpath) == dpath)
+        assert(dpath[0] == '/')
         mkdir_p(rootname)
         self.rootname = os.path.abspath(rootname)
-        self.dirpath = dirpath
+        self.dpath = dpath
         self.logger = logger
         self.lock = None
 
+    def _get_parent_dpath(self, dpath):
+        assert(dpath[0] == "/")
+        (head, tail) = os.path.split(dpath)
+        if tail == "":
+            assert(head == "/")
+            return "/"
+        else:
+            assert(head[0] == "/")
+            return head
+        
+    def _get_lock_path(self, dpath):
+        assert(dpath[0] == "/")
+        (head, tail) = os.path.split(dpath)
+        if tail == "":
+            assert(head == "/")
+            return os.path.join(self.rootname, "_.lock")
+        else:
+            assert(head[0] == "/")
+            assert(tail != "_")
+            return os.path.join(self.rootname, os.path.join(head[1:], "%s.lock" % tail))
+
+    def _get_dir_path(self, dpath):
+        assert(dpath[0] == "/")
+        (head, tail) = os.path.split(dpath)
+        if tail == "":
+            assert(head == "/")
+            return self.rootname
+        else:
+            assert(head[0] == "/")
+            assert(tail != "_")
+            return os.path.join(self.rootname, os.path.join(head[1:], tail))
+
+    def _acquire_dir_rec(self, dpath):
+        parent_dpath = self._get_parent_dpath(dpath)
+        if dpath != parent_dpath:
+            parent_lock = self._acquire_dir_rec(parent_dpath)
+            try:
+                this_lock = Lock(self._get_lock_path(dpath), logger=self.logger)
+                this_lock.acquire()
+            finally:
+                parent_lock.release()
+        else:
+            this_lock = Lock(self._get_lock_path(dpath), logger=self.logger)
+            this_lock.acquire()
+        return this_lock
+
     def acquire_dir(self):
-        if self.logger: self.logger.debug("acquiring CachePathLock %s %s..." % (self.rootname, self.dirpath))
-        (head, tail) = os.path.split(self.dirpath)
-        parent_dir = os.path.join(self.rootname, head)
-        this_dir = os.path.join(self.rootname, self.dirpath)
-        parent_lock = Lock(os.path.join(parent_dir, "lock"), logger=self.logger)
-        try:
-            parent_lock.acquire()
-            this_lock = Lock(os.path.join(this_dir, "lock"), logger=self.logger)
-        finally:
-            parent_lock.release()
-        this_lock.acquire()
-        self.lock = this_lock
+        if self.logger: self.logger.debug("acquiring CachePathLock %s %s..." % (self.rootname, self.dpath))
+        self.lock = self._acquire_dir_rec(self.dpath)
 
     def release_dir(self):
-        if self.logger: self.logger.debug("releasing CachePathLock %s %s..." % (self.rootname, self.dirpath))
+        if self.logger: self.logger.debug("releasing CachePathLock %s %s..." % (self.rootname, self.dpath))
         if self.lock: self.lock.release()
 
-class Monitor():
-    """ Monitor class for the mutual exclusion. """
+
+class RepoMirror():
+    """ Executable class for repo mirror. Providing run() method. """
     def __init__(self, args):
         """ Constructor, arguments are stored into the args object. """
         self.args = args
+        self.lock_class = None
+        self.logger = None
 
     @staticmethod
     def interrupt_handler(signum, frame):  # pragma: uncovered
@@ -233,6 +288,116 @@ class Monitor():
         print >>sys.stderr, \
             "repo-mirror: interrupted by signal %d" % signum
         sys.exit(128 + signum)
+
+    def _list_entries(self):
+        lock = self.lock_class(self.args.mirror_dir, "/", logger=self.logger)
+        try:
+            lock.acquire_dir()
+            for root, dirs, files in os.walk(self.args.mirror_dir):
+                break
+        finally:
+            lock.release_dir()
+        return dirs
+
+    def _clean_entry(self, entry):
+        lock = self.lock_class(self.args.mirror_dir, os.path.join("/", entry), logger=self.logger)
+        try:
+            lock.acquire_dir()
+            self.logger.debug("cleaning mirror entry %s %s"  % (self.args.mirror_dir, entry))
+            clean_rec(os.path.join(self.args.mirror_dir, entry))
+        finally:
+            lock.release_dir()
+
+    def list(self):
+        """ List all currently mirrored repo trees and gits repos. """
+        for entry in self._list_entries():
+            print "%s" % entry
+        return 0
+
+    def clean(self):
+        """ Clean the current mirror id. """
+        self._clean_entry(self.args.id)
+        return 0
+
+    def clean_all(self):
+        """ Clean all current mirrors. """
+        for entry in self._list_entries():
+            self._clean_entry(entry)
+        return 0
+
+    def execute_repo(self):
+        """ Actually execute the repo commands with mirroring. """
+	if self.args.command != "init" or self.args.mirror_dir == None:
+            command_args = ([self.args.repo, self.args.command] +
+                            self.args.arguments)
+            try:
+                self.logger.debug("executing %s..." % " ".join(command_args))
+                self.proc = subprocess.Popen(command_args)
+                code = self.proc.wait()
+            except OSError as e:
+                print >>sys.stderr, "repo-mirror: error: failed to run " \
+                    "command: %s : %s" % (e.strerror, " ".join(command_args))
+                if e.errno == errno.ENOENT:
+                    return ExitCodes.ENOENT
+                else:
+                    return ExitCodes.CANNOT_INVOKE
+            return code
+
+        # Case or repo init with mirror dir...
+        lock = self.lock_class(self.args.mirror_dir, os.path.join("/", self.args.id), logger=self.logger)
+
+        # Take lock and init mirrored repo
+        mirror_dir_id = os.path.join(self.args.mirror_dir, self.args.id)
+        try:
+            lock.acquire_dir()
+            mirrors_dir = os.path.join(mirror_dir_id, "repos")
+            mkdir_p(mirrors_dir)
+            clean_rec(os.path.join(mirrors_dir, ".repo"))
+            try:
+                # Init mirrored repo
+                command_args = ([self.args.repo, "init"] +
+                                self.args.arguments +
+                                ["--mirror"] +
+                                (["--quiet"] if self.args.quiet else []))
+                self.logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
+                with open(os.devnull, "rw") as devnull:
+                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
+                code = self.proc.wait()
+                if code != 0: return code
+                # Sync mirrored repo
+                command_args = ([self.args.repo, "sync"] +
+                                (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
+                                (["--quiet"] if self.args.quiet else []))
+                self.logger.debug("sync mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
+                with open(os.devnull, "rw") as devnull:
+                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
+                code = self.proc.wait()
+                if code != 0: return code
+            except OSError as e:
+                print >>sys.stderr, "repo-mirror: error: failed to run " \
+                    "command: %s : %s" % (e.strerror, " ".join(command_args))
+                if e.errno == errno.ENOENT:
+                    return ExitCodes.ENOENT
+                else:
+                    return ExitCodes.CANNOT_INVOKE
+        finally:
+            lock.release_dir()
+        try:
+            # Init requested repo with alternate mirror
+            command_args = ([self.args.repo, "init"] +
+                            self.args.arguments +
+                            ["--reference=%s" % mirrors_dir])
+            self.logger.debug("init repo: executing %s..." % " ".join(command_args))
+            self.proc = subprocess.Popen(command_args)
+            code = self.proc.wait()
+        except OSError as e:
+            print >>sys.stderr, "repo-mirror: error: failed to run " \
+                "command: %s : %s" % (e.strerror, " ".join(command_args))
+            if e.errno == errno.ENOENT:
+                return ExitCodes.ENOENT
+            else:
+                return ExitCodes.CANNOT_INVOKE
+        return code
 
     def run(self):
 
@@ -252,86 +417,26 @@ class Monitor():
                 return ExitCodes.CANNOT_INVOKE
         logging.basicConfig(stream = log_stream, level = log_lvl,
                             format = log_fmt)
-        logger = logging.getLogger("repo-mirror")
+        self.logger = logging.getLogger("repo-mirror")
 
         # Setup handler for ^C
         signal.signal(signal.SIGINT, self.interrupt_handler)
 
-	if self.args.command != "init" or self.args.mirror_dir == None:
-            command_args = ([self.args.repo, self.args.command] +
-                            self.args.arguments)
-            try:
-                logger.debug("executing %s..." % " ".join(command_args))
-                self.proc = subprocess.Popen(command_args)
-                code = self.proc.wait()
-            except OSError as e:
-                print >>sys.stderr, "repo-mirror: error: failed to run " \
-                    "command: %s : %s" % (e.strerror, " ".join(command_args))
-                if e.errno == errno.ENOENT:
-                    return ExitCodes.ENOENT
-                else:
-                    return ExitCodes.CANNOT_INVOKE
-            return code
-
-        # Case or repo init with mirror dir...
+        # Select locking scheme
         if self.args.internal_locking == "none":
-            lock = CacheNoneLock(self.args.mirror_dir, self.args.id, logger=logger)
+            self.lock_class = CacheNoneLock
         elif self.args.internal_locking == "path":
-            lock = CachePathLock(self.args.mirror_dir, self.args.id, logger=logger)
+            self.lock_class = CachePathLock
 
-        # Take lock and init mirrored repo
-        mirror_dir_id = os.path.join(self.args.mirror_dir, self.args.id)
-        try:
-            lock.acquire_dir()
-            mirrors_dir = os.path.join(mirror_dir_id, "repos")
-            mkdir_p(mirrors_dir)
-            clean_rec(os.path.join(mirrors_dir, ".repo"))
-            try:
-                # Init mirrored repo
-                command_args = ([self.args.repo, "init"] +
-                                self.args.arguments +
-                                ["--mirror"] +
-                                (["--quiet"] if self.args.quiet else []))
-                logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
-                with open(os.devnull, "rw") as devnull:
-                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
-                code = self.proc.wait()
-                if code != 0: return code
-                # Sync mirrored repo
-                command_args = ([self.args.repo, "sync"] +
-                                (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
-                                (["--quiet"] if self.args.quiet else []))
-                logger.debug("sync mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
-                with open(os.devnull, "rw") as devnull:
-                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
-                code = self.proc.wait()
-                if code != 0: return code
-            except OSError as e:
-                print >>sys.stderr, "repo-mirror: error: failed to run " \
-                    "command: %s : %s" % (e.strerror, " ".join(command_args))
-                if e.errno == errno.ENOENT:
-                    return ExitCodes.ENOENT
-                else:
-                    return ExitCodes.CANNOT_INVOKE
-        finally:
-            lock.release_dir()
-        try:
-            # Init requested repo with alternate mirror
-            command_args = ([self.args.repo, "init"] +
-                            self.args.arguments +
-                            ["--reference=%s" % mirrors_dir])
-            logger.debug("init repo: executing %s..." % " ".join(command_args))
-            self.proc = subprocess.Popen(command_args)
-            code = self.proc.wait()
-        except OSError as e:
-            print >>sys.stderr, "repo-mirror: error: failed to run " \
-                "command: %s : %s" % (e.strerror, " ".join(command_args))
-            if e.errno == errno.ENOENT:
-                return ExitCodes.ENOENT
-            else:
-                return ExitCodes.CANNOT_INVOKE
-
-        return code
+        # Dispatcher
+        if self.args.clean_all:
+            return self.clean_all()
+        elif self.args.clean:
+            return self.clean()
+        elif self.args.list:
+            return self.list()
+        else:
+            return self.execute_repo()
 
 args = parser.parse_args()
-sys.exit(Monitor(args).run())
+sys.exit(RepoMirror(args).run())

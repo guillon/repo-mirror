@@ -19,6 +19,7 @@
 # common setup for unit tests
 
 set -e
+set -o pipefail
 
 DIRNAME="$(dirname "$(readlink -e "$0")")"
 TEST="$(basename "$0")"
