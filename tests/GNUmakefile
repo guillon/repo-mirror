@@ -55,7 +55,7 @@ check: _unittests
 
 clean:
 	@echo "Cleaning temp files"
-	$(Q)rm -f *.log *.stamp *.tmp *.dir $(LOCAL_PREFIX) $(LOCAL_BUILD)
+	$(Q)rm -rf *.log *.stamp *.tmp *.dir $(LOCAL_PREFIX) $(LOCAL_BUILD)
 
 distclean: clean
 
