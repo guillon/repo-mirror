@@ -1,0 +1,35 @@
+# Backlog
+
+- Ignore mirroring in case of --mirror/--reference options
+Need to skip mirroring if the repo options already manage mirrors.
+This could legitimately be considered a bug, hence top in list.
+
+- Check mirror when --prune is needed
+Need to check behavior in case of git refs conflict that would need
+pruning.
+For instance if a git ref refs/heads/level1 is removed and then a
+new git refs refs/heads/level1/level2 is created, the default
+behavior of git is to fail unless git fetch --prune was explicitly
+done.
+When updating a mirror if this causes trouble to repo, we should
+arrange to fix this, as the mirrors should not fail in such event
+and silently prune the useless local references.
+
+- Check possible race conditions with clean
+Need to add tests for concurrent cleaning and mirror update.
+This would check that cleaning implements correctly lock taking.
+This test would also stress the events where objects are actually removed
+from the alternate.
+We suppose that objects removal/accesses is managed atomically
+by git and thus that alternate repos can be read while being updated.
+Need to find evidence of this in the documentation or git code
+probably.
+
+- Check possibility of --depth option for the mirror
+As an optimization, the mirror could be cloned in shallow mode with
+a --depth option.
+Though the interaction with the local repo --depth is not clear.
+Still a study until formal evidence that this can be implemented
+correctly.
+
+
