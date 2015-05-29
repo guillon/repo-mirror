@@ -22,11 +22,15 @@ TESTS:=$(wildcard test*.sh)
 DEBUGTEST=
 V=
 
-BINDIR=$(abspath ./bin)
+LOCAL_BUILD=$(abspath ./build)
+LOCAL_PREFIX=$(abspath ./local)
+LOCAL_BINDIR=$(LOCAL_PREFIX)/bin
 WGET=wget
-DEPENDENCIES=repo
+DEPENDENCIES_BINFILE=repo
+DEPENDENCIES_GNUPKG=parallel
+DEPENDENCIES=$(DEPENDENCIES_BINFILE) $(DEPENDENCIES_GNUPKG)
 DL_URL_repo=http://storage.googleapis.com/git-repo-downloads/repo-1.21
-
+DL_URL_parallel=http://ftp.gnu.org/gnu/parallel/parallel-20150522.tar.bz2
 
 help:
 	@echo "usage: make TARGET [PARAMETERS]"
@@ -51,7 +55,7 @@ check: _unittests
 
 clean:
 	@echo "Cleaning temp files"
-	$(Q)rm -f *.log *.stamp *.tmp *.dir $(BINDIR)/*
+	$(Q)rm -f *.log *.stamp *.tmp *.dir $(LOCAL_PREFIX) $(LOCAL_BUILD)
 
 distclean: clean
 
@@ -59,7 +63,7 @@ _unittests: $(TESTS:%=%.chk)
 
 $(TESTS:%=%.chk): %.chk: %
 	@echo "Executing test: $*"
-	$(Q)env PATH="$(BINDIR):$$PATH" DEBUGTEST="$(DEBUGTEST)" REPO_MIRROR="$(REPO_MIRROR)" ./$*
+	$(Q)env PATH="$(LOCAL_BINDIR):$$PATH" DEBUGTEST="$(DEBUGTEST)" REPO_MIRROR="$(REPO_MIRROR)" ./$*
 
 $(TESTS:%=%.chk):  dependencies-repo.stamp
 
@@ -68,12 +72,24 @@ dependencies: $(DEPENDENCIES:%=dependencies-%.chk)
 $(DEPENDENCIES:%=dependencies-%.chk): dependencies-%.chk:
 	$(Q)rm -f dependencies-$*.stamp && $(MAKE) dependencies-$*.stamp
 
-$(DEPENDENCIES:%=dependencies-%.stamp): dependencies-%.stamp:
+$(DEPENDENCIES_BINFILE:%=dependencies-%.stamp): dependencies-%.stamp:
 	@echo "Downloading $* from $(DL_URL_$*)"
 	$(Q)$(WGET) $(DL_URL_$*) -O dependencies-$*.tmp
 	$(Q)chmod 755 dependencies-$*.tmp
-	$(Q)mkdir -p $(BINDIR)
-	$(Q)mv dependencies-$*.tmp /$(BINDIR)/$*
+	$(Q)mkdir -p $(LOCAL_BINDIR)
+	$(Q)mv dependencies-$*.tmp /$(LOCAL_BINDIR)/$*
+	$(Q)touch dependencies-$*.stamp
+
+$(DEPENDENCIES_GNUPKG:%=dependencies-%.stamp): dependencies-%.stamp:
+	@echo "Downloading $* from $(DL_URL_$*)"
+	$(Q)$(WGET) $(DL_URL_$*) -O dependencies-$*.tmp
+	$(Q)rm -rf $(LOCAL_BUILD)/$*
+	$(Q)mkdir -p $(LOCAL_BUILD)/$*
+	$(Q)tar xf dependencies-$*.tmp --strip-component=1 -C $(LOCAL_BUILD)/$*
+	$(Q)rm -f dependencies-$*.tmp
+	$(Q)(cd $(LOCAL_BUILD)/$* && ./configure --prefix=$(LOCAL_PREFIX))
+	$(Q)(cd $(LOCAL_BUILD)/$* && make all)
+	$(Q)(cd $(LOCAL_BUILD)/$* && make install)
 	$(Q)touch dependencies-$*.stamp
 
 .PHONY: help all check clean distclean _unittests $(TESTS:%=%.chk) dependencies $(DEPENDENCIES:%=dependencies-%.chk)
