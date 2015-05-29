@@ -65,7 +65,7 @@ $(TESTS:%=%.chk): %.chk: %
 	@echo "Executing test: $*"
 	$(Q)env PATH="$(LOCAL_BINDIR):$$PATH" DEBUGTEST="$(DEBUGTEST)" REPO_MIRROR="$(REPO_MIRROR)" ./$*
 
-$(TESTS:%=%.chk):  dependencies-repo.stamp
+$(TESTS:%=%.chk):  $(DEPENDENCIES:%=dependencies-%.stamp)
 
 dependencies: $(DEPENDENCIES:%=dependencies-%.chk)
 
