@@ -82,6 +82,10 @@ class LocalOptionParser(optparse.OptionParser):
         if opts.timeout < 0:
             self.exit(1, "%s: error: invalid timeout argument: %d\n" %
                       (self.prog, opts.timeout))
+        if opts.internal_locking not in ["none", "path"]:
+            self.exit(1, "%s: error: invalid locking scheme: %s\n" %
+                      (self.prog, opts.internal_locking))
+
         if len(args) < 1:
             self.exit(1, "%s: error: missing command\n" % self.prog)
         opts.command = args[0]
@@ -121,6 +125,9 @@ parser.add_option("-v", "--version",
 parser.add_option("-d", "--debug",
                   help="debug mode",
                   action="store_true")
+parser.add_option("--internal-locking",
+                  help="internal option: locking scheme: path, none",
+                  default="path")
 parser.add_option("--log-file",
                   default="&stderr",
                   help="log file, &stderr if not specified")
@@ -159,6 +166,60 @@ class Lock:
 
     def __del__(self):
         if self.handle: self.handle.close()
+
+class ICacheLock:
+    """ Interface for the cache hierarchy locking scheme. """
+    """ rootname is the root directory for the locking hierarchy """
+    """ rootname does not need to be absolute/normalized and will """
+    """ be unconditionally created """
+    """ dirpath is the path from the rootdir and must be normalized """
+    """ dirpath will be created on demand """
+    def __init__(self, rootname, dirpath, logger=None):
+        """ Initialize the lock object """
+        pass
+    def acquire_dir(self):
+        """ Acquire a directory lock for dirpath """
+        pass
+    def release_dir(self):
+        """ Release a directory lock for dirpath """
+        pass
+
+class CacheNoneLock(ICacheLock):
+    """ Implementation of a non locked hierarchy, for test purpose """
+    def __init__(self, rootname, dirpath, logger=None):
+        assert(os.path.normpath(dirpath) == dirpath)
+
+
+class CachePathLock(ICacheLock):
+    """ Implementation of hierarchical locking based on path """
+    """ Actually this scheme locks the parent path before """
+    """ acquiring the actual path lock. """
+    def __init__(self, rootname, dirpath, logger=None):
+        if logger: logger.debug("creating CachePathLock %s %s..." % (rootname, dirpath))
+        assert(os.path.normpath(dirpath) == dirpath)
+        mkdir_p(rootname)
+        self.rootname = os.path.abspath(rootname)
+        self.dirpath = dirpath
+        self.logger = logger
+        self.lock = None
+
+    def acquire_dir(self):
+        if self.logger: self.logger.debug("acquiring CachePathLock %s %s..." % (self.rootname, self.dirpath))
+        (head, tail) = os.path.split(self.dirpath)
+        parent_dir = os.path.join(self.rootname, head)
+        this_dir = os.path.join(self.rootname, self.dirpath)
+        parent_lock = Lock(os.path.join(parent_dir, "lock"), logger=self.logger)
+        try:
+            parent_lock.acquire()
+            this_lock = Lock(os.path.join(this_dir, "lock"), logger=self.logger)
+        finally:
+            parent_lock.release()
+        this_lock.acquire()
+        self.lock = this_lock
+
+    def release_dir(self):
+        if self.logger: self.logger.debug("releasing CachePathLock %s %s..." % (self.rootname, self.dirpath))
+        if self.lock: self.lock.release()
 
 class Monitor():
     """ Monitor class for the mutual exclusion. """
@@ -213,19 +274,15 @@ class Monitor():
             return code
 
         # Case or repo init with mirror dir...
-        # Take global lock, for creating new lock entry
-        global_lock_file = os.path.join(self.args.mirror_dir, "lock")
-        global_lock = Lock(global_lock_file, logger=logger)
-        try:
-            global_lock.acquire()
-            mirror_dir_id = os.path.join(self.args.mirror_dir, self.args.id)
-            lock_file = os.path.join(mirror_dir_id, "lock")
-            lock = Lock(lock_file, logger=logger)
-        finally:
-            global_lock.release()
+        if self.args.internal_locking == "none":
+            lock = CacheNoneLock(self.args.mirror_dir, self.args.id, logger=logger)
+        elif self.args.internal_locking == "path":
+            lock = CachePathLock(self.args.mirror_dir, self.args.id, logger=logger)
+
         # Take lock and init mirrored repo
+        mirror_dir_id = os.path.join(self.args.mirror_dir, self.args.id)
         try:
-            lock.acquire()
+            lock.acquire_dir()
             mirrors_dir = os.path.join(mirror_dir_id, "repos")
             mkdir_p(mirrors_dir)
             clean_rec(os.path.join(mirrors_dir, ".repo"))
@@ -257,7 +314,7 @@ class Monitor():
                 else:
                     return ExitCodes.CANNOT_INVOKE
         finally:
-            lock.release()
+            lock.release_dir()
         try:
             # Init requested repo with alternate mirror
             command_args = ([self.args.repo, "init"] +
