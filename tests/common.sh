@@ -79,6 +79,15 @@ skip() {
   exit 0
 }
 
+is_python3() {
+  local pythonver
+  local python3ver
+  pythonver=$(python -c 'import sys; sys.stdout.write("%s" % sys.hexversion);')
+  python3ver=$(printf "%d" 0x03000000)
+  [ "$pythonver" -ge "$python3ver" ] || return 1
+  return 0
+}
+
 rm -rf "$TEST.dir"
 [ "$KEEPTEST" != 0 -o "$KEEPFAIL" != 0 ] || TMPTEST=$(mktemp -d $TMPDIR/repo-mirror.XXXXXX)
 [ "$KEEPTEST" = 0 -a "$KEEPFAIL" = 0 ] || TMPTEST=$(mkdir -p "$TEST.dir" && echo "$PWD/$TEST.dir")

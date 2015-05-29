@@ -26,18 +26,28 @@ import sys
 def check_python_version():
     try:
         assert sys.hexversion >= 0x02060000
-        assert sys.hexversion < 0x03000000
-    except:  # pragma: fatal
-        print >>sys.stderr, \
-            'repo-mirror: error: python version >= 2.6 is required'
+    except:
+        sys.stderr.write('repo-mirror: error: python version >= 2.6 is required\n')
         sys.exit(1)
 check_python_version()
 
-import os, subprocess, signal, fcntl, errno, optparse, time, hashlib, logging, tempfile
+# Setup reasonably quiet mode on ^C
+import signal
+def interrupt_handler(signum, frame):
+    """ Handler for signals that require immediate exit. """
+    sys.stderr.write("repo-mirror: interrupted by signal %d\n" % signum)
+    sys.exit(128 + signum)
+signal.signal(signal.SIGINT, interrupt_handler)
+
+import os, subprocess, fcntl, errno, optparse, time, hashlib, logging, tempfile
 
 # Update VERSION for major.minor.patch releases.
 # The sha1sum will be appended to the version string.
 VERSION="0.1.0"
+
+# Simplify writing for python 2/3 compatibility
+def printerr(msg):
+    sys.stderr.write("%s\n" % msg)
 
 class ExitCodes:
     """ Exit codes used to feedback the parent process.
@@ -71,7 +81,7 @@ class LocalOptionParser(optparse.OptionParser):
     def handle_version(option, opt, value, parser):
         with open(__file__) as f:
             sha1 = hashlib.sha1(f.read()).hexdigest()
-        print "%s version %s [sha1:%s]" % (parser.prog, VERSION, sha1)
+        print("%s version %s [sha1:%s]" % (parser.prog, VERSION, sha1))
         parser.exit(0)
 
     def process_args(self, opts, args):
@@ -282,13 +292,6 @@ class RepoMirror():
         self.lock_class = None
         self.logger = None
 
-    @staticmethod
-    def interrupt_handler(signum, frame):  # pragma: uncovered
-        """ Handler for signals that require immediate exit. """
-        print >>sys.stderr, \
-            "repo-mirror: interrupted by signal %d" % signum
-        sys.exit(128 + signum)
-
     def _list_entries(self):
         lock = self.lock_class(self.args.mirror_dir, "/", logger=self.logger)
         try:
@@ -311,7 +314,7 @@ class RepoMirror():
     def list(self):
         """ List all currently mirrored repo trees and gits repos. """
         for entry in self._list_entries():
-            print "%s" % entry
+            print("%s" % entry)
         return 0
 
     def clean(self):
@@ -335,8 +338,8 @@ class RepoMirror():
                 self.proc = subprocess.Popen(command_args)
                 code = self.proc.wait()
             except OSError as e:
-                print >>sys.stderr, "repo-mirror: error: failed to run " \
-                    "command: %s : %s" % (e.strerror, " ".join(command_args))
+                printerr("repo-mirror: error: failed to run " \
+                             "command: %s : %s" % (e.strerror, " ".join(command_args)))
                 if e.errno == errno.ENOENT:
                     return ExitCodes.ENOENT
                 else:
@@ -374,8 +377,8 @@ class RepoMirror():
                 code = self.proc.wait()
                 if code != 0: return code
             except OSError as e:
-                print >>sys.stderr, "repo-mirror: error: failed to run " \
-                    "command: %s : %s" % (e.strerror, " ".join(command_args))
+                printerr("repo-mirror: error: failed to run " \
+                          "command: %s : %s" % (e.strerror, " ".join(command_args)))
                 if e.errno == errno.ENOENT:
                     return ExitCodes.ENOENT
                 else:
@@ -391,8 +394,8 @@ class RepoMirror():
             self.proc = subprocess.Popen(command_args)
             code = self.proc.wait()
         except OSError as e:
-            print >>sys.stderr, "repo-mirror: error: failed to run " \
-                "command: %s : %s" % (e.strerror, " ".join(command_args))
+            printerr("repo-mirror: error: failed to run " \
+                      "command: %s : %s" % (e.strerror, " ".join(command_args)))
             if e.errno == errno.ENOENT:
                 return ExitCodes.ENOENT
             else:
@@ -412,15 +415,11 @@ class RepoMirror():
             try:
                 log_stream = open(args.log_file, "a", 1)
             except IOError as e:
-                print >>sys.stderr, \
-                    "repo-mirror: error:: can't open log file: %s" % str(e)
+                printerr("repo-mirror: error:: can't open log file: %s" % str(e))
                 return ExitCodes.CANNOT_INVOKE
         logging.basicConfig(stream = log_stream, level = log_lvl,
                             format = log_fmt)
         self.logger = logging.getLogger("repo-mirror")
-
-        # Setup handler for ^C
-        signal.signal(signal.SIGINT, self.interrupt_handler)
 
         # Select locking scheme
         if self.args.internal_locking == "none":

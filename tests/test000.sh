@@ -35,10 +35,13 @@ wget http://www.google.com -O google.html
 which git
 git --version
 
-# Check whether repo is installed
-which repo
-mkdir repo-test
-cd repo-test
-# init will fail as url is not specified, though it is fine for getting the repo version
-repo init || true
-repo --version
+# Check whether repo is installed (skip as not working on python 3)
+if ! is_python3; then
+  which repo
+  mkdir repo-test
+  pushd repo-test >/dev/null
+  # init will fail as url is not specified, though it is fine for getting the repo version
+  repo init || true
+  repo --version
+  popd >/dev/null
+fi
