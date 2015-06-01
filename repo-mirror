@@ -312,8 +312,8 @@ class RepoMirror():
             lock.release_dir()
 
     def list(self):
-        """ List all currently mirrored repo trees and gits repos. """
-        for entry in self._list_entries():
+        """ List all currently mirrored repo trees and gits repos. Alphanum order. """
+        for entry in sorted(self._list_entries()):
             print("%s" % entry)
         return 0
 

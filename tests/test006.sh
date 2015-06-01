@@ -50,7 +50,7 @@ pushd test-repo >/dev/null
 $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -i anotherone -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
 popd >/dev/null
 list=$($REPO_MIRROR  -m "$TMPTEST/repo-mirrors" --list | tr '\n' ' ')
-[ "$(echo $list)" = "default anotherone" ]
+[ "$(echo $list)" = "anotherone default" ]
 [ -d "$TMPTEST/repo-mirrors/default" ]
 [ -d "$TMPTEST/repo-mirrors/anotherone" ]
 
@@ -68,7 +68,7 @@ pushd test-repo >/dev/null
 $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -i anothertwo -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
 popd >/dev/null
 list=$($REPO_MIRROR  -m "$TMPTEST/repo-mirrors" --list | tr '\n' ' ')
-[ "$(echo $list)" = "default anothertwo" ]
+[ "$(echo $list)" = "anothertwo default" ]
 [ -d "$TMPTEST/repo-mirrors/default" ]
 [ -d "$TMPTEST/repo-mirrors/anothertwo" ]
 
