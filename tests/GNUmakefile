@@ -17,10 +17,22 @@
 #
 
 SHELL=/bin/sh
-REPO_MIRROR:=$(abspath ../repo-mirror)
-TESTS:=$(wildcard test*.sh)
+srcdir:=$(dir $(firstword $(MAKEFILE_LIST)))
+testdir:=.
+REPO_MIRROR:=$(abspath $(srcdir)../repo-mirror)
+TESTS:=$(sort $(notdir $(wildcard $(srcdir)test*.sh)))
 DEBUGTEST=
 V=
+COVERAGE=
+STRICT_COVERAGE=0
+
+PYTHON_COVERAGE_DIR=$(abspath $(testdir))/coverage
+ifneq ($(COVERAGE),)
+PYTHON_COVERAGE=1
+COVERAGE_OPTS=PYTHONPATH=$(PYTHONPATH):$(abspath $(srcdir))/coverage
+COVERAGE_OPTS+=PYTHON_COVERAGE=$(PYTHON_COVERAGE)
+COVERAGE_OPTS+=PYTHON_COVERAGE_DIR=$(PYTHON_COVERAGE_DIR)
+endif
 
 LOCAL_BUILD=$(abspath ./build)
 LOCAL_PREFIX=$(abspath ./local)
@@ -46,6 +58,8 @@ help:
 	@echo "REPO_MIRROR='$(REPO_MIRROR)' path to repo-mirror to be tested"
 	@echo "TESTS='$(TESTS)' explicit list of tests to run"
 	@echo "DEBUGTEST='$(DEBUGTEST)' activate output of test trace and log if set "
+	@echo "COVERAGE='$(COVERAGE)' activate coverage of test trace and log if set "
+	@echo "STRICT_COVERAGE='$(STRICT_COVERAGE)' fail if not 100% line covered "
 	@echo "V='$(V)' activate output of make commands if set"
 
 
@@ -55,15 +69,20 @@ check: _unittests
 
 clean:
 	@echo "Cleaning temp files"
-	$(Q)rm -rf *.log *.stamp *.tmp *.dir $(LOCAL_PREFIX) $(LOCAL_BUILD)
+	$(Q)rm -rf *.log *.stamp *.tmp *.dir $(LOCAL_PREFIX) $(LOCAL_BUILD) $(PYTHON_COVERAGE_DIR)/.coverage* $(PYTHON_COVERAGE_DIR)/coverage.txt
+
 
 distclean: clean
 
-_unittests: $(TESTS:%=%.chk)
+_unittests:
+	$(Q)[ $(COVERAGE) = "" ] || (rm -rf $(PYTHON_COVERAGE_DIR)/.coverage* $(PYTHON_COVERAGE_DIR)/coverage.txt && mkdir -p $(PYTHON_COVERAGE_DIR))
+	$(Q)$(MAKE)  $(TESTS:%=%.chk)
+	$(Q)[ $(COVERAGE) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && coverage combine)
+	$(Q)[ $(COVERAGE) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && env STRICT_COVERAGE=$(STRICT_COVERAGE) ./check_coverage.sh)
 
 $(TESTS:%=%.chk): %.chk: %
 	@echo "Executing test: $*"
-	$(Q)env PATH="$(LOCAL_BINDIR):$$PATH" DEBUGTEST="$(DEBUGTEST)" REPO_MIRROR="$(REPO_MIRROR)" ./$*
+	$(Q)env PATH="$(LOCAL_BINDIR):$$PATH" DEBUGTEST="$(DEBUGTEST)" REPO_MIRROR="$(REPO_MIRROR)" $(COVERAGE_OPTS) ./$*
 
 $(TESTS:%=%.chk):  $(DEPENDENCIES:%=dependencies-%.stamp)
 

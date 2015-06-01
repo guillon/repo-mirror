@@ -1,0 +1,13 @@
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+# unreachable (non-executable) statements
+    pragma: unreachable
+# fatal error code
+    pragma: fatal
+# code still not covered
+    pragma: uncovered
+# standard pragma
+    pragma: no cover
+# debug
+    def __repr__
