@@ -1,9 +1,5 @@
 # Backlog
 
-- Ignore mirroring in case of --mirror/--reference options
-Need to skip mirroring if the repo options already manage mirrors.
-This could legitimately be considered a bug, hence top in list.
-
 - Check mirror when --prune is needed
 Need to check behavior in case of git refs conflict that would need
 pruning.

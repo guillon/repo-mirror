@@ -334,8 +334,17 @@ class RepoMirror():
         return proc.wait()
 
     def execute_repo(self):
-        """ Actually execute the repo commands with mirroring. """
-	if self.args.command != "init" or self.args.mirror_dir == None:
+        """ Actually execute wrapped repo commands with optional mirroring. """
+
+        def _execute_command_as_is():
+            def _is_mirror_or_ref_arg(x):
+                return x.find("--mirror") == 0 or x.find("--reference") == 0
+            if self.args.command != "init": return True
+            mirror_or_ref = filter(lambda x: _is_mirror_or_ref_arg(x), self.args.arguments)
+            if len(mirror_or_ref) > 0: return True
+            return False
+
+        if self.args.mirror_dir == None or _execute_command_as_is():
             command_args = ([self.args.repo, self.args.command] +
                             self.args.arguments)
             self.logger.debug("executing %s..." % " ".join(command_args))
