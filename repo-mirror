@@ -26,7 +26,7 @@ import sys
 def check_python_version():
     try:
         assert sys.hexversion >= 0x02060000
-    except:
+    except: # pragma: no cover
         sys.stderr.write('repo-mirror: error: python version >= 2.6 is required\n')
         sys.exit(1)
 check_python_version()
@@ -50,13 +50,12 @@ def printerr(msg):
     sys.stderr.write("%s\n" % msg)
 
 class ExitCodes:
-    """ Exit codes used to feedback the parent process.
-    This codes are aligned with the coreutils timeout implementation.
-    """
+    """ Exit codes used to feedback the parent process. """
+    """ Aligned with the coreutils timeout implementation. """
     TIMEDOUT = 124  # semaphore timed out
     CANCELED = 125  # internal error
-    CANNOT_INVOKE = 126  # error executing job
-    ENOENT = 127  # couldn't find job to exec
+    CANNOT_INVOKE = 126  # error executing command
+    ENOENT = 127  # couldn't find command to execute
 
 
 class LocalOptionParser(optparse.OptionParser):
@@ -90,23 +89,26 @@ class LocalOptionParser(optparse.OptionParser):
         Return a single namespace with all arguments.
         """
         if opts.timeout < 0:
-            self.exit(1, "%s: error: invalid timeout argument: %d\n" %
+            self.exit(1, "%s: error: invalid timeout argument: --timeout=%d\n" %
                       (self.prog, opts.timeout))
         if opts.internal_locking not in ["none", "path"]:
-            self.exit(1, "%s: error: invalid locking scheme: %s\n" %
+            self.exit(1, "%s: error: invalid locking scheme: --internal-locking=%s\n" %
                       (self.prog, opts.internal_locking))
 
         if opts.clean or opts.clean_all or opts.list:
             if len(args) > 0:
                 self.exit(1, "%s: error: unexpected additional arguments for --list or --clean or --clean-all action\n")
+            if not opts.mirror_dir:
+                self.exit(1, "%s: error: missing mirror dir argument: --mirror-dir=<dir>\n")
         else:
             if len(args) < 1:
-                self.exit(1, "%s: error: missing command\n" % self.prog)
+                self.exit(1, "%s: error: missing repo arguments\n" % self.prog)
             opts.command = args[0]
             opts.arguments = args[1:]
+
         return opts
 
-    def exit(self, status=0, message=None):  # pragma: uncovered
+    def exit(self, status=0, message=None):
         """ Always exit with status CANCELED on error. """
         if status != 0:
             status = ExitCodes.CANCELED
@@ -161,7 +163,7 @@ def mkdir_p(path):
     except OSError as exc:
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
-        else: raise
+        else: raise # pragma: no cover
 
 def clean_rec(dst):
     if os.path.exists(dst):
@@ -201,19 +203,21 @@ class ICacheLock:
     """ dpath will be created on demand """
     def __init__(self, rootname, dpath, logger=None):
         """ Initialize the lock object """
-        pass
+
     def acquire_dir(self):
         """ Acquire a directory lock for dpath """
-        pass
+
     def release_dir(self):
         """ Release a directory lock for dpath """
-        pass
 
 class CacheNoneLock(ICacheLock):
     """ Implementation of a non locked hierarchy, for test purpose """
     def __init__(self, rootname, dpath, logger=None):
         assert(os.path.normpath(dpath) == dpath)
-
+    def acquire_dir(self):
+        pass
+    def release_dir(self):
+        pass
 
 class CachePathLock(ICacheLock):
     """ Implementation of hierarchical locking based on path """
@@ -249,17 +253,6 @@ class CachePathLock(ICacheLock):
             assert(head[0] == "/")
             assert(tail != "_")
             return os.path.join(self.rootname, os.path.join(head[1:], "%s.lock" % tail))
-
-    def _get_dir_path(self, dpath):
-        assert(dpath[0] == "/")
-        (head, tail) = os.path.split(dpath)
-        if tail == "":
-            assert(head == "/")
-            return self.rootname
-        else:
-            assert(head[0] == "/")
-            assert(tail != "_")
-            return os.path.join(self.rootname, os.path.join(head[1:], tail))
 
     def _acquire_dir_rec(self, dpath):
         parent_dpath = self._get_parent_dpath(dpath)
@@ -328,22 +321,25 @@ class RepoMirror():
             self._clean_entry(entry)
         return 0
 
+    def _execute_command(self, command_args, cwd=None, stdin=None, stdout=None, stderr=None):
+        try:
+            proc = subprocess.Popen(command_args, cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr)
+        except OSError as e:
+            printerr("repo-mirror: error: failed to run " \
+                          "command: %s : %s" % (e.strerror, " ".join(command_args)))
+            if e.errno == errno.ENOENT:
+                return ExitCodes.ENOENT
+            else:
+                return ExitCodes.CANNOT_INVOKE
+        return proc.wait()
+
     def execute_repo(self):
         """ Actually execute the repo commands with mirroring. """
 	if self.args.command != "init" or self.args.mirror_dir == None:
             command_args = ([self.args.repo, self.args.command] +
                             self.args.arguments)
-            try:
-                self.logger.debug("executing %s..." % " ".join(command_args))
-                self.proc = subprocess.Popen(command_args)
-                code = self.proc.wait()
-            except OSError as e:
-                printerr("repo-mirror: error: failed to run " \
-                             "command: %s : %s" % (e.strerror, " ".join(command_args)))
-                if e.errno == errno.ENOENT:
-                    return ExitCodes.ENOENT
-                else:
-                    return ExitCodes.CANNOT_INVOKE
+            self.logger.debug("executing %s..." % " ".join(command_args))
+            code = self._execute_command(command_args)
             return code
 
         # Case or repo init with mirror dir...
@@ -353,53 +349,39 @@ class RepoMirror():
         mirror_dir_id = os.path.join(self.args.mirror_dir, self.args.id)
         try:
             lock.acquire_dir()
+
+            # Prepare repo
             mirrors_dir = os.path.join(mirror_dir_id, "repos")
             mkdir_p(mirrors_dir)
             clean_rec(os.path.join(mirrors_dir, ".repo"))
-            try:
-                # Init mirrored repo
-                command_args = ([self.args.repo, "init"] +
-                                self.args.arguments +
-                                ["--mirror"] +
-                                (["--quiet"] if self.args.quiet else []))
-                self.logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
-                with open(os.devnull, "rw") as devnull:
-                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
-                code = self.proc.wait()
-                if code != 0: return code
-                # Sync mirrored repo
-                command_args = ([self.args.repo, "sync"] +
-                                (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
-                                (["--quiet"] if self.args.quiet else []))
-                self.logger.debug("sync mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
-                with open(os.devnull, "rw") as devnull:
-                    self.proc = subprocess.Popen(command_args, cwd=mirrors_dir, stdin=devnull)
-                code = self.proc.wait()
-                if code != 0: return code
-            except OSError as e:
-                printerr("repo-mirror: error: failed to run " \
-                          "command: %s : %s" % (e.strerror, " ".join(command_args)))
-                if e.errno == errno.ENOENT:
-                    return ExitCodes.ENOENT
-                else:
-                    return ExitCodes.CANNOT_INVOKE
-        finally:
-            lock.release_dir()
-        try:
-            # Init requested repo with alternate mirror
+
+            # Init mirrored repo
             command_args = ([self.args.repo, "init"] +
                             self.args.arguments +
-                            ["--reference=%s" % mirrors_dir])
-            self.logger.debug("init repo: executing %s..." % " ".join(command_args))
-            self.proc = subprocess.Popen(command_args)
-            code = self.proc.wait()
-        except OSError as e:
-            printerr("repo-mirror: error: failed to run " \
-                      "command: %s : %s" % (e.strerror, " ".join(command_args)))
-            if e.errno == errno.ENOENT:
-                return ExitCodes.ENOENT
-            else:
-                return ExitCodes.CANNOT_INVOKE
+                            ["--mirror"] +
+                            (["--quiet"] if self.args.quiet else []))
+            self.logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
+            with open(os.devnull, "rw") as devnull:
+                code = self._execute_command(command_args, cwd=mirrors_dir, stdin=devnull)
+            if code != 0: return code
+
+            # Sync mirrored repo
+            command_args = ([self.args.repo, "sync"] +
+                            (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
+                            (["--quiet"] if self.args.quiet else []))
+            self.logger.debug("sync mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
+            with open(os.devnull, "rw") as devnull:
+                code = self._execute_command(command_args, cwd=mirrors_dir, stdin=devnull)
+            if code != 0: return code
+        finally:
+            lock.release_dir()
+
+        # Init requested repo with alternate mirror
+        command_args = ([self.args.repo, "init"] +
+                        self.args.arguments +
+                        ["--reference=%s" % mirrors_dir])
+        self.logger.debug("init repo: executing %s..." % " ".join(command_args))
+        code = self._execute_command(command_args)
         return code
 
     def run(self):
@@ -416,7 +398,7 @@ class RepoMirror():
                 log_stream = open(args.log_file, "a", 1)
             except IOError as e:
                 printerr("repo-mirror: error:: can't open log file: %s" % str(e))
-                return ExitCodes.CANNOT_INVOKE
+                return ExitCodes.CANCELED
         logging.basicConfig(stream = log_stream, level = log_lvl,
                             format = log_fmt)
         self.logger = logging.getLogger("repo-mirror")

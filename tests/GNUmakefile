@@ -24,6 +24,7 @@ TESTS:=$(sort $(notdir $(wildcard $(srcdir)test*.sh)))
 DEBUGTEST=
 V=
 COVERAGE=
+COVERAGE_HTML=
 STRICT_COVERAGE=0
 
 PYTHON_COVERAGE_DIR=$(abspath $(testdir))/coverage
@@ -69,7 +70,7 @@ check: _unittests
 
 clean:
 	@echo "Cleaning temp files"
-	$(Q)rm -rf *.log *.stamp *.tmp *.dir $(LOCAL_PREFIX) $(LOCAL_BUILD) $(PYTHON_COVERAGE_DIR)/.coverage* $(PYTHON_COVERAGE_DIR)/coverage.txt
+	$(Q)rm -rf *.log *.stamp *.tmp *.dir $(LOCAL_PREFIX) $(LOCAL_BUILD) $(PYTHON_COVERAGE_DIR)/.coverage* $(PYTHON_COVERAGE_DIR)/coverage.txt $(PYTHON_COVERAGE_DIR)/html
 
 
 distclean: clean
@@ -78,6 +79,7 @@ _unittests:
 	$(Q)[ $(COVERAGE) = "" ] || (rm -rf $(PYTHON_COVERAGE_DIR)/.coverage* $(PYTHON_COVERAGE_DIR)/coverage.txt && mkdir -p $(PYTHON_COVERAGE_DIR))
 	$(Q)$(MAKE)  $(TESTS:%=%.chk)
 	$(Q)[ $(COVERAGE) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && coverage combine)
+	$(Q)[ $(COVERAGE_HTML) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && ./report_coverage_html.sh)
 	$(Q)[ $(COVERAGE) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && env STRICT_COVERAGE=$(STRICT_COVERAGE) ./check_coverage.sh)
 
 $(TESTS:%=%.chk): %.chk: %
