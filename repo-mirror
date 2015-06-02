@@ -333,6 +333,22 @@ class RepoMirror():
                 return ExitCodes.CANNOT_INVOKE
         return proc.wait()
 
+    def _update_mirror_config(self, gitdir):
+        """ Update a git mirror config file to be in --prune mode by default. """
+        configfile = os.path.join(gitdir, "config")
+        if os.path.exists(configfile):
+            command_args = ['git', 'config', '-f', configfile,
+                            '--replace-all', 'fetch.prune', 'true']
+            self._execute_command(command_args)
+
+    def _update_mirrors_configs(self, mirrors_dir):
+        """ Update all git mirrors present in the repo mirror tree. """
+        dirs = []
+        for root, dirs, files in os.walk(mirrors_dir):
+            break
+        for gitdir in filter(lambda x: x.endswith(".git"), dirs):
+            self._update_mirror_config(os.path.join(mirrors_dir, gitdir))
+
     def execute_repo(self):
         """ Actually execute wrapped repo commands with optional mirroring. """
 
@@ -363,6 +379,9 @@ class RepoMirror():
             mirrors_dir = os.path.join(mirror_dir_id, "repos")
             mkdir_p(mirrors_dir)
             clean_rec(os.path.join(mirrors_dir, ".repo"))
+
+            # Update mirrors configuration
+            self._update_mirrors_configs(mirrors_dir)
 
             # Init mirrored repo
             command_args = ([self.args.repo, "init"] +
