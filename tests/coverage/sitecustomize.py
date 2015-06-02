@@ -46,9 +46,9 @@ if coverage_enabled:
         config_file = os.path.join(coverage_dir, "coverage.rc")
     else:
         coverage_file = ".coverage"
-	config_file = "coverage.rc"
+        config_file = "coverage.rc"
     cov = coverage.coverage(
-	config_file=config_file,
+        config_file=config_file,
         data_file=coverage_file,
         include="*/repo-mirror",
         data_suffix=True,
