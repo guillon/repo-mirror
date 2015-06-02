@@ -78,7 +78,7 @@ class LocalOptionParser(optparse.OptionParser):
 
     @staticmethod
     def handle_version(option, opt, value, parser):
-        with open(__file__) as f:
+        with open(__file__, "rb") as f:
             sha1 = hashlib.sha1(f.read()).hexdigest()
         print("%s version %s [sha1:%s]" % (parser.prog, VERSION, sha1))
         parser.exit(0)
