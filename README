@@ -1,5 +1,6 @@
 
-![Build Status](https://api.travis-ci.org/guillon/repo-mirror.png)
+[![Build Status](https://api.travis-ci.org/guillon/repo-mirror.png?branch=master)](https://travis-ci.org/guillon/repo-mirror/branches)
+[![Coverage Status](https://coveralls.io/repos/guillon/repo-mirror/badge.svg?branch=master)](https://coveralls.io/r/guillon/repo-mirror?branch=master)
 
 # Synopsys
 
@@ -95,11 +96,14 @@ Install with, for instance:
 Refer to the project home page at:
 http://guillon.github.com/repo-mirror
 
-Refer to the current build and validation status at:
-https://travis-ci.org/guillon/repo-mirror
-
 Fill issues and enhancement request at:
 https://github.com/guillon/repo-mirror/issues
+
+Refer to the current build and validation status at:
+https://travis-ci.org/guillon/repo-mirror?branches
+
+Refer to the code coverage status at:
+https://coveralls.io/r/guillon/repo-mirror?branch=master
 
 
 # License
