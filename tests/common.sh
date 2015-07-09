@@ -88,6 +88,23 @@ is_python3() {
   return 0
 }
 
+git_hexversion() {
+  local ver
+  local m
+  local m2
+  local m3
+  local m4
+  ver=$(git --version | cut -f3 -d' ')
+  m=$(echo $ver | cut -f1 -d.)
+  m2=$(echo $ver | cut -f2 -d.)
+  m3=$(echo $ver | cut -f3 -d.)
+  m4=$(echo $ver | cut -f4 -d.)
+  m3=${m3:-0}
+  m4=${m4:-0}
+  ver=$(($m*65536*256+$m2*65536+$m3*256+$m4))
+  printf "0x%.8x" $ver
+}
+
 rm -rf "$TEST.dir"
 [ "$KEEPTEST" != 0 -o "$KEEPFAIL" != 0 ] || TMPTEST=$(mktemp -d $TMPDIR/repo-mirror.XXXXXX)
 [ "$KEEPTEST" = 0 -a "$KEEPFAIL" = 0 ] || TMPTEST=$(mkdir -p "$TEST.dir" && echo "$PWD/$TEST.dir")
