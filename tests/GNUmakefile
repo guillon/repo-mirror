@@ -76,11 +76,11 @@ clean:
 distclean: clean
 
 _unittests:
-	$(Q)[ $(COVERAGE) = "" ] || (rm -rf $(PYTHON_COVERAGE_DIR)/.coverage* $(PYTHON_COVERAGE_DIR)/coverage.txt && mkdir -p $(PYTHON_COVERAGE_DIR))
-	$(Q)$(MAKE)  $(TESTS:%=%.chk)
-	$(Q)[ $(COVERAGE) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && coverage combine)
-	$(Q)[ $(COVERAGE_HTML) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && ./report_coverage_html.sh)
-	$(Q)[ $(COVERAGE) = "" ] || (cd $(PYTHON_COVERAGE_DIR) && env STRICT_COVERAGE=$(STRICT_COVERAGE) ./check_coverage.sh)
+	$(Q)[ "$(COVERAGE)" = "" ] || (rm -rf $(PYTHON_COVERAGE_DIR)/.coverage* $(PYTHON_COVERAGE_DIR)/coverage.txt && mkdir -p $(PYTHON_COVERAGE_DIR))
+	$(Q)$(MAKE) $(TESTS:%=%.chk)
+	$(Q)[ "$(COVERAGE)" = "" ] || (cd $(PYTHON_COVERAGE_DIR) && coverage combine)
+	$(Q)[ "$(COVERAGE_HTML)" = "" ] || (cd $(PYTHON_COVERAGE_DIR) && ./report_coverage_html.sh)
+	$(Q)[ "$(COVERAGE)" = "" ] || (cd $(PYTHON_COVERAGE_DIR) && env STRICT_COVERAGE=$(STRICT_COVERAGE) ./check_coverage.sh)
 
 $(TESTS:%=%.chk): %.chk: %
 	@echo "Executing test: $*"
