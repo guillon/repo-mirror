@@ -130,7 +130,7 @@ parser.add_option("-j", "--jobs",
                   help="repo mirror sync jobs")
 parser.add_option("--list",
                   action="store_true",
-                  help="list currently mirrorer repo trees)")
+                  help="list currently mirrored repo trees")
 parser.add_option("--clean",
                   action="store_true",
                   help="clean the repo mirror tree identified by --id (or the default)")
@@ -147,6 +147,9 @@ parser.add_option("-v", "--version",
                   help="output version string",
                   action="callback",
                   callback=parser.handle_version)
+parser.add_option("-n", "--dry-run",
+                  action="store_true",
+                  help="dry run mode, log execution but do not produce side effect")
 parser.add_option("-d", "--debug",
                   help="debug mode",
                   action="store_true")
@@ -157,17 +160,27 @@ parser.add_option("--log-file",
                   default="&stderr",
                   help="log file, &stderr if not specified")
 
-def mkdir_p(path):
+def mkdir_p(path, dryrun=False, logger=None):
+    cmd_str = "mkdir -p %s" % path
+    if dryrun:
+        if logger: logger.info("dry-run: %s" % cmd_str)
+        return 0
     try:
+        if logger: logger.debug("executing %s..." % cmd_str)
         os.makedirs(path)
     except OSError as exc:
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
         else: raise # pragma: no cover
 
-def clean_rec(dst):
-    if os.path.exists(dst):
-        subprocess.call(['rm', '-rf', dst])
+def clean_rec(path, dryrun=False, logger=None):
+    cmd_str = "rm -rf %s" % path
+    if dryrun:
+        if logger: logger.info("dry-run: %s" % cmd_str)
+        return 0
+    if os.path.exists(path):
+        if logger: logger.debug("executing %s..." % cmd_str)
+        subprocess.call(['rm', '-rf', path])
     return 0
 
 class Lock:
@@ -300,7 +313,7 @@ class RepoMirror():
         try:
             lock.acquire_dir()
             self.logger.debug("cleaning mirror entry %s %s"  % (self.args.mirror_dir, entry))
-            clean_rec(os.path.join(self.args.mirror_dir, entry))
+            clean_rec(os.path.join(self.args.mirror_dir, entry), self.args.dry_run, self.logger)
         finally:
             lock.release_dir()
 
@@ -322,6 +335,12 @@ class RepoMirror():
         return 0
 
     def _execute_command(self, command_args, cwd=None, stdin=None, stdout=None, stderr=None):
+        cmd_str = "cd %s && " % cwd if cwd != None else ""
+        cmd_str += " ".join(command_args)
+        self.logger.debug("init repo: executing %s..." % cmd_str)
+        if self.args.dry_run:
+            self.logger.info("dry-run: %s" % cmd_str)
+            return 0
         try:
             proc = subprocess.Popen(command_args, cwd=cwd, stdin=stdin, stdout=stdout, stderr=stderr)
         except OSError as e:
@@ -348,6 +367,21 @@ class RepoMirror():
             break
         for gitdir in filter(lambda x: x.endswith(".git"), dirs):
             self._update_mirror_config(os.path.join(mirrors_dir, gitdir))
+
+    def _append_options(self, args, append_opts):
+        opts = []
+        new_args = []
+        i = 0
+        in_opt = True
+        while i < len(args):
+            if in_opt and args[i] == "--":
+                in_opt = False
+            if in_opt:
+                opts.append(args[i])
+            else:
+                new_args.append(args[i])
+            i += 1
+        return opts + append_opts + new_args
 
     def _fixup_repo_init_arguments(self, repo_init_args):
         def fixup_ssh_url(arg):
@@ -413,18 +447,17 @@ class RepoMirror():
 
             # Prepare repo
             mirrors_dir = os.path.join(mirror_dir_id, "repos")
-            mkdir_p(mirrors_dir)
-            clean_rec(os.path.join(mirrors_dir, ".repo"))
+            mkdir_p(mirrors_dir, self.args.dry_run, self.logger)
+            clean_rec(os.path.join(mirrors_dir, ".repo"), self.args.dry_run, self.logger)
 
             # Update mirrors configuration
             self._update_mirrors_configs(mirrors_dir)
 
             # Init mirrored repo
             command_args = ([self.args.repo, "init"] +
-                            init_arguments +
-                            ["--mirror"] +
-                            (["--quiet"] if self.args.quiet else []))
-            self.logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
+                            self._append_options(init_arguments,
+                                                 ["--mirror"] +
+                                                 (["--quiet"] if self.args.quiet else [])))
             with open(os.devnull, "rw") as devnull:
                 code = self._execute_command(command_args, cwd=mirrors_dir, stdin=devnull)
             if code != 0: return code
@@ -433,7 +466,6 @@ class RepoMirror():
             command_args = ([self.args.repo, "sync"] +
                             (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
                             (["--quiet"] if self.args.quiet else []))
-            self.logger.debug("sync mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
             with open(os.devnull, "rw") as devnull:
                 code = self._execute_command(command_args, cwd=mirrors_dir, stdin=devnull)
             if code != 0: return code
@@ -442,9 +474,8 @@ class RepoMirror():
 
         # Init requested repo with alternate mirror
         command_args = ([self.args.repo, "init"] +
-                        self.args.arguments +
-                        ["--reference=%s" % mirrors_dir])
-        self.logger.debug("init repo: executing %s..." % " ".join(command_args))
+                        self._append_options(self.args.arguments,
+                                             ["--reference=%s" % mirrors_dir]))
         code = self._execute_command(command_args)
         return code
 
@@ -472,6 +503,10 @@ class RepoMirror():
             self.lock_class = CacheNoneLock
         elif self.args.internal_locking == "path":
             self.lock_class = CachePathLock
+
+        # Setup for dry run mode
+        if self.args.dry_run:
+            self.lock_class = CacheNoneLock
 
         # Dispatcher
         if self.args.clean_all:
