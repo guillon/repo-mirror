@@ -22,6 +22,8 @@ testdir:=.
 REPO_MIRROR:=$(abspath $(srcdir)../repo-mirror)
 TESTS:=$(sort $(notdir $(wildcard $(srcdir)test*.sh)))
 DEBUGTEST=
+KEEPTEST=
+KEEPFAIL=
 V=
 COVERAGE=
 COVERAGE_HTML=
@@ -58,8 +60,10 @@ help:
 	@echo "where PAREMETERS is one of (current values):"
 	@echo "REPO_MIRROR='$(REPO_MIRROR)' path to repo-mirror to be tested"
 	@echo "TESTS='$(TESTS)' explicit list of tests to run"
-	@echo "DEBUGTEST='$(DEBUGTEST)' activate output of test trace and log if set "
-	@echo "COVERAGE='$(COVERAGE)' activate coverage of test trace and log if set "
+	@echo "DEBUGTEST='$(DEBUGTEST)' activate output of test trace and log if set"
+	@echo "KEEPFAIL='$(KEEPFAIL)' keep test dir locally if the test fails when set"
+	@echo "KEEPTEST='$(KEEPTEST)' always keep test dir locally when set"
+	@echo "COVERAGE='$(COVERAGE)' activate coverage of test trace and log if set"
 	@echo "STRICT_COVERAGE='$(STRICT_COVERAGE)' fail if not 100% line covered "
 	@echo "V='$(V)' activate output of make commands if set"
 

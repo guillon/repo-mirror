@@ -31,6 +31,10 @@ head -n1 <version.out | grep -qc '^repo-mirror version '
 $REPO_MIRROR --help | tee help.out
 head -n1 <help.out | grep -qc '^Usage: repo-mirror '
 
+# Dry run check
+$REPO_MIRROR --mirror-dir=$PWD/repo-mirror --dry-run init 2>&1 | tee dry-run.out
+grep '^INFO: ' dry-run.out | grep -qwc 'repo init --mirror'
+
 # Repo option. Check that the repo executable passed is actually used.
 $REPO_MIRROR --repo=echo -- hello | tee repo.out
 head -n1 <repo.out | grep -qc '^hello$'
