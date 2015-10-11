@@ -39,7 +39,7 @@ def interrupt_handler(signum, frame):
     sys.exit(128 + signum)
 signal.signal(signal.SIGINT, interrupt_handler)
 
-import os, subprocess, fcntl, errno, optparse, time, hashlib, logging, tempfile
+import os, subprocess, fcntl, errno, optparse, time, hashlib, logging, tempfile, re
 
 # Update VERSION for major.minor.patch releases.
 # The sha1sum will be appended to the version string.
@@ -349,23 +349,59 @@ class RepoMirror():
         for gitdir in filter(lambda x: x.endswith(".git"), dirs):
             self._update_mirror_config(os.path.join(mirrors_dir, gitdir))
 
+    def _fixup_repo_init_arguments(self, repo_init_args):
+        def fixup_ssh_url(arg):
+            new_arg = arg
+            m = re.match(r"^([^:]*@[^:]*):(.*)", new_arg)
+            if m != None:
+                new_arg = "ssh://" + m.group(1) + "/" + m.group(2)
+            return new_arg
+
+        def fixup_args(args):
+            new_args = []
+            i = 0
+            in_opt = True
+            while i < len(args):
+                if in_opt and args[i].startswith("-"):
+                    for opt in ("-u", "--manifest-url"):
+                        iopt = opt + "=" if opt.startswith("--") else opt
+                        if args[i] == opt and i + 1 < len(args):
+                            new_args.append(args[i])
+                            new_args.append(fixup_ssh_url(args[i+1]))
+                            i += 2
+                            break
+                        elif args[i].startswith(iopt) and len(args[i]) > len(iopt):
+                            new_args.append(iopt + fixup_ssh_url(args[i][len(iopt):]))
+                            i += 1
+                            break
+                if i < len(args):
+                    if args[i] == "--": in_opt = False
+                    new_args.append(args[i])
+                    i += 1
+            return new_args
+
+        return fixup_args(repo_init_args)
+
+    def _must_execute_command_as_is(self):
+        def _is_mirror_or_ref_arg(x):
+            return x.find("--mirror") == 0 or x.find("--reference") == 0
+        if self.args.command != "init": return True
+        has_mirror_or_ref = len(filter(_is_mirror_or_ref_arg, self.args.arguments)) > 0
+        if has_mirror_or_ref: return True
+        return False
+
     def execute_repo(self):
         """ Actually execute wrapped repo commands with optional mirroring. """
 
-        def _execute_command_as_is():
-            def _is_mirror_or_ref_arg(x):
-                return x.find("--mirror") == 0 or x.find("--reference") == 0
-            if self.args.command != "init": return True
-            mirror_or_ref = filter(lambda x: _is_mirror_or_ref_arg(x), self.args.arguments)
-            if len(mirror_or_ref) > 0: return True
-            return False
-
-        if self.args.mirror_dir == None or _execute_command_as_is():
+        if self.args.mirror_dir == None or self._must_execute_command_as_is():
             command_args = ([self.args.repo, self.args.command] +
                             self.args.arguments)
             self.logger.debug("executing %s..." % " ".join(command_args))
             code = self._execute_command(command_args)
             return code
+
+        # Fixup init arguments to be passed to repo init --mirror
+        init_arguments = self._fixup_repo_init_arguments(self.args.arguments)
 
         # Case or repo init with mirror dir...
         lock = self.lock_class(self.args.mirror_dir, os.path.join("/", self.args.id), logger=self.logger)
@@ -385,7 +421,7 @@ class RepoMirror():
 
             # Init mirrored repo
             command_args = ([self.args.repo, "init"] +
-                            self.args.arguments +
+                            init_arguments +
                             ["--mirror"] +
                             (["--quiet"] if self.args.quiet else []))
             self.logger.debug("init mirror: executing cd %s && %s..." % (mirrors_dir, " ".join(command_args)))
