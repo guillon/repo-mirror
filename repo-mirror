@@ -420,8 +420,8 @@ class RepoMirror():
         def _is_mirror_or_ref_arg(x):
             return x.find("--mirror") == 0 or x.find("--reference") == 0
         if self.args.command != "init": return True
-        has_mirror_or_ref = len(filter(_is_mirror_or_ref_arg, self.args.arguments)) > 0
-        if has_mirror_or_ref: return True
+        mirror_or_ref = filter(_is_mirror_or_ref_arg, self.args.arguments)
+        if len(list(mirror_or_ref)) > 0: return True
         return False
 
     def execute_repo(self):
@@ -458,7 +458,7 @@ class RepoMirror():
                             self._append_options(init_arguments,
                                                  ["--mirror"] +
                                                  (["--quiet"] if self.args.quiet else [])))
-            with open(os.devnull, "rw") as devnull:
+            with open(os.devnull, "a+") as devnull:
                 code = self._execute_command(command_args, cwd=mirrors_dir, stdin=devnull)
             if code != 0: return code
 
@@ -466,7 +466,7 @@ class RepoMirror():
             command_args = ([self.args.repo, "sync"] +
                             (["--jobs=%d" % self.args.jobs] if self.args.jobs else []) +
                             (["--quiet"] if self.args.quiet else []))
-            with open(os.devnull, "rw") as devnull:
+            with open(os.devnull, "a+") as devnull:
                 code = self._execute_command(command_args, cwd=mirrors_dir, stdin=devnull)
             if code != 0: return code
         finally:
