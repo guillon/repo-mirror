@@ -32,8 +32,9 @@ $REPO_MIRROR --help | tee help.out
 head -n1 <help.out | grep -qc '^Usage: repo-mirror '
 
 # Dry run check
-$REPO_MIRROR --mirror-dir=$PWD/repo-mirror --dry-run init 2>&1 | tee dry-run.out
-grep '^INFO: ' dry-run.out | grep -qwc 'repo init --mirror'
+$REPO_MIRROR --mirror-dir=$PWD/undef --dry-run -- init -u ssh://undef/undef -m undef.xml -- 2>&1 | tee dry-run.out
+grep '^INFO: ' dry-run.out | grep -qwc 'repo init .* --mirror --'
+[ ! -d $PWD/undef ] # must not be created
 
 # Repo option. Check that the repo executable passed is actually used.
 $REPO_MIRROR --repo=echo -- hello | tee repo.out
