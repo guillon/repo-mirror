@@ -434,7 +434,7 @@ class RepoMirror():
             code = self._execute_command(command_args)
             return code
 
-        # Fixup init arguments to be passed to repo init --mirror
+        # Fixup init arguments to be passed to repo init --mirror/--reference
         init_arguments = self._fixup_repo_init_arguments(self.args.arguments)
 
         # Case or repo init with mirror dir...
@@ -469,12 +469,15 @@ class RepoMirror():
             with open(os.devnull, "a+") as devnull:
                 code = self._execute_command(command_args, cwd=mirrors_dir, stdin=devnull)
             if code != 0: return code
+
+            # Clean local .repo in mirror dir as we do not depend on it anymore
+            clean_rec(os.path.join(mirrors_dir, ".repo"), self.args.dry_run, self.logger)
         finally:
             lock.release_dir()
 
         # Init requested repo with alternate mirror
         command_args = ([self.args.repo, "init"] +
-                        self._append_options(self.args.arguments,
+                        self._append_options(init_arguments,
                                              ["--reference=%s" % mirrors_dir]))
         code = self._execute_command(command_args)
         return code
