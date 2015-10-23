@@ -97,8 +97,12 @@ available, it can be done this way:</p>
 
 <pre><code>$ cat &gt;repo &lt;&lt;EOF
 #!/bin/sh
-exec repo-mirror -m $HOME/.repo-mirrors -- ${1+"$@"}
+# Execute repo command under the control of repo-mirror
+# Mirrors dirs stored in ~/.repo-mirrors
+# Note that the actual repo path must be given with the -r option
+exec repo-mirror -m $HOME/.repo-mirrors -r /usr/local/bin/repo -- ${1+"$@"}
 EOF
+$ chmod +x repo
 $ PATH=$PWD:$PATH
 $ ./build_script.sh
 </code></pre>
@@ -112,7 +116,7 @@ Usage: repo-mirror [options] -- REPO_COMMAND...
 <h1>
 <a id="build-and-install" class="anchor" href="#build-and-install" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build and Install</h1>
 
-<p>This tool requires python 2.6.x.</p>
+<p>This tool requires python 2.6.x, 2.7.x or &gt;= 3.x.</p>
 
 <p>The tool can be used directly without installation by executing
 directly repo-mirror where downloaded.</p>
@@ -140,11 +144,14 @@ directly repo-mirror where downloaded.</p>
 <p>Refer to the project home page at:
 <a href="http://guillon.github.com/repo-mirror">http://guillon.github.com/repo-mirror</a></p>
 
-<p>Refer to the current build and validation status at:
-<a href="https://travis-ci.org/guillon/repo-mirror">https://travis-ci.org/guillon/repo-mirror</a></p>
-
 <p>Fill issues and enhancement request at:
 <a href="https://github.com/guillon/repo-mirror/issues">https://github.com/guillon/repo-mirror/issues</a></p>
+
+<p>Refer to the current build and validation status at:
+<a href="https://travis-ci.org/guillon/repo-mirror?branches">https://travis-ci.org/guillon/repo-mirror?branches</a></p>
+
+<p>Refer to the code coverage status at:
+<a href="https://coveralls.io/r/guillon/repo-mirror?branch=master">https://coveralls.io/r/guillon/repo-mirror?branch=master</a></p>
 
 <h1>
 <a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h1>
