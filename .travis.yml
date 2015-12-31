@@ -1,13 +1,20 @@
 language: python
 python:
- - "2.6"
- - "2.7"
- - "3.3"
+  - '2.6'
+  - '2.7'
+  - '3.3'
 install:
- - pip install -r tests/requirements_pip.txt
- - pip install coveralls
+  - pip install -r tests/requirements_pip.txt
+  - pip install coveralls
 script:
- - make V=1 DEBUGTEST=1 COVERAGE=1 check
+  - make V=1 DEBUGTEST=1 COVERAGE=1 check
 after_success:
- - cd tests/coverage && coveralls --rcfile=coverage.rc
-
+  - cd tests/coverage && coveralls --rcfile=coverage.rc
+deploy:
+  provider: releases
+  api_key:
+    secure: YmfKzAD9JUMlk+6oSZsIcE1U2ZS41WxzUK1F6MGzazqcv3qnjsUFsqyEvUuN0jy8YA8eunpq4TWkkHos4R7Ubx62nIIrcHEFayyIk1zbjDHTyMqiwsndCfS2yXMY42TfLvECKW4d03Dd66gtcKMcnyguFr1siJ58OitHZ2P6Xkx7ICFVXY8F+CGQTw3ufq29geRmI6PGNMCJhNHdyRYm56WBQAKbIUdFjFo6YvvthkIjs65POrKL1D5kw8oGRGhWb+KR4sTlMfUZdmCNd6puyO9D7oIL94c74ZyxavOwPNgojfZfQSXqVKzL01K/DCvZIcxv+WGpzUdKaMBazKuTTg7OMvoNczddhEZ0+Pem8oc/3rP+vsicIpU12sGsbuV/ywZP5HzRGCY81Qfm3H2JBEIwzCI6pfBpbmdTa3eeKbYR45f+sy46rOy0t+NZnDRmqpRuPS4Tko+AkCiOCJJyz9FeJae9vefLT1Ag2mp+O0AjRF0ytrQ3Pc31HFEPnpxm3iWG9shx2W06BLz4MgcINmlYPenfYQSV6ER26K+Kywp0BH++cHIUm1JruxQAKAiYHpUYN3ceIhszTIUC4eeUlszOjwdRV9Hzmm3GXB7WBr+tp1lCDxya+P+y51iO1PwQ08o5so/5Dl4XsjodWs/O90zm4d82a76l86mVoYhF+k4=
+  file: repo-mirror
+  on:
+    repo: guillon/repo-mirror
+    tags: true

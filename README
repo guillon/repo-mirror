@@ -40,8 +40,16 @@ actual mirrors directory and taking locks where needed to.
 
 #Download
 
-Download the last stable version of the script from there:
+Download the repo-mirror tool from the releases page:
+https://github.com/guillon/repo-mirror/releases
+
+Or download the last stable version of the script from there:
 https://raw.githubusercontent.com/guillon/repo-mirror/master/repo-mirror
+
+For instance:
+
+    $ wget -O ~/bin/repo-mirror https://raw.githubusercontent.com/guillon/repo-mirror/master/repo-mirror
+    $ chmod +x ~/bin/repo-mirror
 
 # Examples
 
