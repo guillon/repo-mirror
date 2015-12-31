@@ -12,7 +12,7 @@ install:
 script:
   - make V=1 DEBUGTEST=1 COVERAGE=1 REPO_VERSION=$REPO_VERSION check
 after_success:
-  - cd tests/coverage && coveralls --rcfile=coverage.rc
+  - (cd tests/coverage && coveralls --rcfile=coverage.rc)
 deploy:
   provider: releases
   api_key:
@@ -21,3 +21,5 @@ deploy:
   on:
     repo: guillon/repo-mirror
     tags: true
+    python: '2.6'
+    condition: $REPO_VERSION = 1.21
