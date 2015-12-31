@@ -28,6 +28,7 @@ V=
 COVERAGE=
 COVERAGE_HTML=
 STRICT_COVERAGE=0
+REPO_VERSION=1.22
 
 PYTHON_COVERAGE_DIR=$(abspath $(testdir))/coverage
 ifneq ($(COVERAGE),)
@@ -44,7 +45,7 @@ WGET=wget
 DEPENDENCIES_BINFILE=repo
 DEPENDENCIES_GNUPKG=parallel
 DEPENDENCIES=$(DEPENDENCIES_BINFILE) $(DEPENDENCIES_GNUPKG)
-DL_URL_repo=http://storage.googleapis.com/git-repo-downloads/repo-1.21
+DL_URL_repo=http://storage.googleapis.com/git-repo-downloads/repo-$(REPO_VERSION)
 DL_URL_parallel=http://ftp.gnu.org/gnu/parallel/parallel-20150522.tar.bz2
 
 help:
@@ -54,7 +55,7 @@ help:
 	@echo "make all       : run unit tests"
 	@echo "make check     : same as make all"
 	@echo "make clean     : clean build and tests"
-	@echo "make distclean : clean evrything"
+	@echo "make distclean : clean everything"
 	@echo "make dependencies : force download of all dependencies"
 	@echo
 	@echo "where PAREMETERS is one of (current values):"
@@ -66,6 +67,7 @@ help:
 	@echo "COVERAGE='$(COVERAGE)' activate coverage of test trace and log if set"
 	@echo "STRICT_COVERAGE='$(STRICT_COVERAGE)' fail if not 100% line covered "
 	@echo "V='$(V)' activate output of make commands if set"
+	@echo "REPO_VERSION='$(REPO_VERSION)' the repo version to test with"
 
 
 all: _unittests
@@ -102,7 +104,7 @@ $(DEPENDENCIES_BINFILE:%=dependencies-%.stamp): dependencies-%.stamp:
 	$(Q)$(WGET) $(DL_URL_$*) -O dependencies-$*.tmp
 	$(Q)chmod 755 dependencies-$*.tmp
 	$(Q)mkdir -p $(LOCAL_BINDIR)
-	$(Q)mv dependencies-$*.tmp /$(LOCAL_BINDIR)/$*
+	$(Q)mv dependencies-$*.tmp $(LOCAL_BINDIR)/$*
 	$(Q)touch dependencies-$*.stamp
 
 $(DEPENDENCIES_GNUPKG:%=dependencies-%.stamp): dependencies-%.stamp:

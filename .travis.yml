@@ -3,11 +3,14 @@ python:
   - '2.6'
   - '2.7'
   - '3.3'
+env:
+  - REPO_VERSION=1.21
+  - REPO_VERSION=1.22
 install:
   - pip install -r tests/requirements_pip.txt
   - pip install coveralls
 script:
-  - make V=1 DEBUGTEST=1 COVERAGE=1 check
+  - make V=1 DEBUGTEST=1 COVERAGE=1 REPO_VERSION=$REPO_VERSION check
 after_success:
   - cd tests/coverage && coveralls --rcfile=coverage.rc
 deploy:

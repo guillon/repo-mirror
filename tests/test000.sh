@@ -41,7 +41,7 @@ if ! is_python3; then
   mkdir repo-test
   pushd repo-test >/dev/null
   # init will fail as url is not specified, though it is fine for getting the repo version
-  repo init || true
+  repo init 2>/dev/null || true
   repo --version
   popd >/dev/null
 fi
