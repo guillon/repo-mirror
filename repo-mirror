@@ -341,9 +341,9 @@ class RepoMirror():
         if self.args.dry_run:
             self.logger.info("dry-run: %s" % cmd_str)
             return 0
-        def setfl(fd, flg=None, msk=None):
+        def setfl(fd, msk=None):
             if not fd: return
-            flags = flg or fcntl.fcntl(fd, fcntl.F_GETFL)
+            flags = fcntl.fcntl(fd, fcntl.F_GETFL)
             new_flags = msk and (flags | msk) or flags
             if not fd.closed:
                 fcntl.fcntl(fd, fcntl.F_SETFL, new_flags)

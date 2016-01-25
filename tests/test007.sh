@@ -150,4 +150,5 @@ done
 res=0
 wait $pid || res=$?
 [ "$res" = 130 ]
+cat <args.out
 grep -qc "interrupted by signal 2" <args.out
