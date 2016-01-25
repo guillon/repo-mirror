@@ -29,6 +29,7 @@ TMPDIR="${TMPDIR:-/tmp}"
 KEEPTEST="${KEEPTEST:-0}"
 KEEPFAIL="${KEEPFAIL:-0}"
 _skipped=0
+_xfail=0
 
 test_cleanup() {
   : # Override this function in the test if some local cleanup is needed
@@ -41,9 +42,13 @@ cleanup() {
   test_cleanup
   cd "$TMPDIR" # ensure not in TMPTEST before cleaning
   [ -d "$TMPTEST" ] && [ "$KEEPTEST" = 0 ] && [ "$KEEPFAIL" = 0 -o $exit = 0 ] && rm -rf "$TMPTEST"
-  [ $exit != 0 -o $_skipped = 1 ] || success
-  [ $exit = 0 -o $exit -ge 128 ] || failure
-  [ $exit = 0 -o $exit -lt 128 ] || interrupted && trap - EXIT && exit $exit
+  [ $exit -ge 128 ] && interrupted && exit $exit
+  [ $_skipped = 1 ] && exit 0
+  [ $exit = 0 -a $_xfail = 1 ] && failure_xpass && exit 1
+  [ $exit != 0 -a $_xfail = 1 ] && success_xfail && exit 0
+  [ $exit = 0 -a $_xfail = 0 ] && success
+  [ $exit != 0 -a $_xfail = 0 ] && failure
+  exit $exit
 }
 
 if [ "$DEBUGTEST" = "" ]; then
@@ -66,9 +71,20 @@ failure() {
   echo "***FAIL: $TEST: $TEST_CASE$reason" >&$_fd_out
 }
 
+failure_xpass() {
+  set +x
+  local reason=${1+": $1"}
+  echo "***FAIL: XPASS: $TEST: $TEST_CASE$reason" >&$_fd_out
+}
+
 success() {
   set +x
   echo "SUCCESS: $TEST: $TEST_CASE" >&$_fd_out
+}
+
+success_xfail() {
+  set +x
+  echo "SUCCESS: XFAIL: $TEST: $TEST_CASE" >&$_fd_out
 }
 
 skip() {
@@ -77,6 +93,12 @@ skip() {
   echo "---SKIP: $TEST: $TEST_CASE$reason" >&$_fd_out
   _skipped=1
   exit 0
+}
+
+xfail() {
+  local reason=${1+": $1"}
+  echo "Mark test as XFAIL$reason" >&$_fd_out
+ _xfail=1
 }
 
 is_python3() {
