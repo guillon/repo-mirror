@@ -1,11 +1,5 @@
 # Backlog
 
-- Support removal of dangling git locks
-When repo-mirror/git crashes some dangling git locks
-may be left around which will make further repo-mirror fail.
-Would need to detect such condition and clean locks as they
-are discovered. Ref to https://github.com/guillon/repo-mirror/issues/1
-
 - Check possible race conditions with clean
 Need to add tests for concurrent cleaning and mirror update.
 This would check that cleaning implements correctly lock taking.

@@ -34,26 +34,34 @@ mkdir -p repo-mirrors
 mkdir -p test-repo
 (
     cd test-repo
-    $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
-    $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- sync
+    $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -j8 -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
+    $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -j8 -- sync -j8
 )
 
-# Update master branch
+# Update master branch of project1 and manifests
 (
     cd test-repo/project1
     echo "" >>README
     git -c user.email="anonymous@anon.org" -c user.name="Anonymous" commit -a -m 'Update README'
     git push local HEAD:master
 )
+(
+    cd test-repo/.repo/manifests
+    echo "" >>default.xml
+    git -c user.email="anonymous@anon.org" -c user.name="Anonymous" commit -a -m 'Update manifest default.xml'
+    git push origin HEAD:master
+)
 
-# Simulate a git crash by adding a dangling lock
+# Simulate a git crash by adding a dangling lock in manifest and project1
+(touch "$TMPTEST"/repo-mirrors/default/repos/manifests.git/refs/heads/master.lock)
 (touch "$TMPTEST"/repo-mirrors/default/repos/project1.git/refs/heads/master.lock)
 
-# Mark this test as expected to fail
-xfail "support for dangling lock not implemented"
-
-# Re-execute a mirror init/sync, should fail to sync
+# Re-execute a mirror init/sync,
+# should fail to sync, remove lock and re-execute
+rm -rf test-repo
+mkdir -p test-repo
 (
     cd test-repo
-    $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
+    $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -j8 -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
+    $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -j8 -- sync -j8
 )
