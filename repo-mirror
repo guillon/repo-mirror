@@ -52,6 +52,7 @@ def printerr(msg):
 class ExitCodes:
     """ Exit codes used to feedback the parent process. """
     """ Aligned with the coreutils timeout implementation. """
+    USER = 2  # user error
     TIMEDOUT = 124  # semaphore timed out
     CANCELED = 125  # internal error
     CANNOT_INVOKE = 126  # error executing command
@@ -67,8 +68,7 @@ class LocalOptionParser(optparse.OptionParser):
     def __init__(self):
         optparse.OptionParser.__init__(
             self, prog="repo-mirror",
-            description="repo-mirror utility, "
-            "run a command in mutual exclusion.",
+            description="run repo commands with transparent local git mirrors management.",
             usage="%prog [options] -- REPO_COMMAND..."
         )
 
@@ -88,9 +88,6 @@ class LocalOptionParser(optparse.OptionParser):
         Process parsed args into suitable form after some checks.
         Return a single namespace with all arguments.
         """
-        if opts.timeout < 0:
-            self.exit(1, "%s: error: invalid timeout argument: --timeout=%d\n" %
-                      (self.prog, opts.timeout))
         if opts.internal_locking not in ["none", "path"]:
             self.exit(1, "%s: error: invalid locking scheme: --internal-locking=%s\n" %
                       (self.prog, opts.internal_locking))
@@ -109,25 +106,25 @@ class LocalOptionParser(optparse.OptionParser):
         return opts
 
     def exit(self, status=0, message=None):
-        """ Always exit with status CANCELED on error. """
+        """ Exit with message and exit code 2 on user arguments errors. """
         if status != 0:
-            status = ExitCodes.CANCELED
+            status = ExitCodes.USER
         optparse.OptionParser.exit(self, status, message)
 
 
 parser = LocalOptionParser()
 
 parser.add_option("-m", "--mirror-dir",
-                  help="repo mirror dir")
+                  help="repo mirror dir, mandatory (for instance: -m $HOME/.repo-mirror)")
+parser.add_option("-j", "--jobs",
+                  type=int, default=0,
+                  help="repo mirror sync jobs, passed to repo sync when fetching mirrors")
+parser.add_option("-r", "--repo",
+                  default="repo",
+                  help="repo tool actual executable. Default: repo (as found in $PATH)")
 parser.add_option("-i", "--id",
                   default="default",
                   help="optional identifier for the mirrored repo tree. The default is to mirror all trees at the same location. Default: default")
-parser.add_option("-r", "--repo",
-                  default="repo",
-                  help="repo executable. Default: repo")
-parser.add_option("-j", "--jobs",
-                  type=int, default=0,
-                  help="repo mirror sync jobs")
 parser.add_option("--list",
                   action="store_true",
                   help="list currently mirrored repo trees")
@@ -139,10 +136,7 @@ parser.add_option("--clean-all",
                   help="clean all existing repo mirror trees")
 parser.add_option("-q", "--quiet",
                   action="store_true",
-                  help="repo mirror sync quiet option")
-parser.add_option("-t", "--timeout",
-                  type=int, default=0,
-                  help="UNIMPLEMENTED. delay for waiting on the semaphore. Default: 0")
+                  help="if set, repo init/sync of mirrors are done with --quiet option")
 parser.add_option("-v", "--version",
                   help="output version string",
                   action="callback",
@@ -153,12 +147,12 @@ parser.add_option("-n", "--dry-run",
 parser.add_option("-d", "--debug",
                   help="debug mode",
                   action="store_true")
-parser.add_option("--internal-locking",
-                  help="internal option: locking scheme: path, none",
-                  default="path")
 parser.add_option("--log-file",
                   default="&stderr",
                   help="log file, &stderr if not specified")
+parser.add_option("--internal-locking",
+                  help="internal option: locking scheme, one of: path, none",
+                  default="path")
 
 def mkdir_p(path, dryrun=False, logger=None):
     cmd_str = "mkdir -p %s" % path
@@ -574,7 +568,7 @@ class RepoMirror():
                 log_stream = open(args.log_file, "a", 1)
             except IOError as e:
                 printerr("repo-mirror: error:: can't open log file: %s" % str(e))
-                return ExitCodes.CANCELED
+                return ExitCodes.USER
         logging.basicConfig(stream = log_stream, level = log_lvl,
                             format = log_fmt)
         self.logger = logging.getLogger("repo-mirror")

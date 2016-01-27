@@ -43,13 +43,8 @@ head -n1 <repo.out | grep -qc '^hello$'
 # Check reporting of bad arguments options. Fake repo tool for these.
 res=0
 $REPO_MIRROR --repo=echo --  2>&1 | tee args.out || res=$?
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 head -n1 <args.out | grep -qc 'missing repo arguments'
-
-res=0
-$REPO_MIRROR --repo=echo --timeout -1 -- hello 2>&1 | tee args.out || res=$?
-[ "$res" = 125 ]
-head -n1 <args.out | grep -qc 'invalid timeout'
 
 res=0
 $REPO_MIRROR --repo=echo --internal-locking=none -- hello 2>&1 | tee args.out || res=$?
@@ -62,7 +57,7 @@ $REPO_MIRROR --repo=echo --internal-locking=path -- hello 2>&1 | tee args.out ||
 res=0
 $REPO_MIRROR --repo=echo --internal-locking=foo -- hello 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'invalid locking'
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --list 2>&1 | tee args.out || res=$?
@@ -71,12 +66,12 @@ $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --list 2>&1 | tee args.out || res=$?
 res=0
 $REPO_MIRROR --list 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'missing mirror dir argument'
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --repo=echo --list -- hello 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'unexpected additional arguments'
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --clean 2>&1 | tee args.out || res=$?
@@ -85,12 +80,12 @@ $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --clean 2>&1 | tee args.out || res=$?
 res=0
 $REPO_MIRROR --clean 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'missing mirror dir argument'
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --repo=echo --clean -- hello 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'unexpected additional arguments'
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --clean-all 2>&1 | tee args.out || res=$?
@@ -99,12 +94,12 @@ $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --clean-all 2>&1 | tee args.out || re
 res=0
 $REPO_MIRROR --clean-all 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'missing mirror dir argument'
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --repo=echo --clean-all -- hello 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'unexpected additional arguments'
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --list --debug 3>&1 >&2 2>&3 | tee args.out || res=$?
@@ -124,7 +119,7 @@ grep -qc '^DEBUG:' <args.out
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --list --debug --log-file=/undef/args.out 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc "can't open log file"
-[ "$res" = 125 ]
+[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --repo=/undef -- hello 2>&1 | tee args.out || res=$?

@@ -3,14 +3,14 @@
 [![Coverage Status](https://coveralls.io/repos/guillon/repo-mirror/badge.svg?branch=master)](https://coveralls.io/r/guillon/repo-mirror?branch=master)
 [![Issue Count](https://codeclimate.com/github/guillon/repo-mirror/badges/issue_count.svg)](https://codeclimate.com/github/guillon/repo-mirror)
 
-# Synopsys
+# Synopsis
 
 The repo-mirror utility is a simple command for enabling automatic local
 mirroring of repo git repositories.
 
 The principle is to be able to replace the bare repo command by a repo-mirror
 command that will handle the creation of the mirror repositories and
-execute the actual repo command refering to the mirror repositories when
+execute the actual repo command referring to the mirror repositories when
 doing repo init/sync in particular.
 
 For instance, in order to automatically benefit from a local shared mirror
@@ -21,25 +21,26 @@ for all the repositories of a repo manifest, instead of executing:
 
 one can execute:
 
-    $ repo-mirror -m $HOME/.repo-mirrors -- init -u manifest_url.git
+    $ repo-mirror -m $HOME/.repo-mirror -- init -u manifest_url.git
     $ repo sync
 
 Note that a visible effect on the repo init step is that the output
 will show actually two repo init steps as it will first init/sync the mirror
-and then init/sync the current dir.
+and then init/sync the current directory.
 
 The above two commands roughly behave as if one has typed:
 
-    $ (cd $HOME/.repo-mirrors/... && repo init --mirror -u manifest_url.git)
-    $ (cd $HOME/.repo-mirrors/... && repo sync)
-    $ repo init --reference=$HOME/.repo-mirrors/... -u manifest_url.git
+    $ (cd $HOME/.repo-mirror/... && repo init --mirror -u manifest_url.git)
+    $ (cd $HOME/.repo-mirror/... && repo sync)
+    $ repo init --reference=$HOME/.repo-mirror/... -u manifest_url.git
     $ repo sync
 
 Other things are actually done behind the scene such as selecting the
-actual mirrors directory, taking locks where needed to and working
+actual mirrors directories, taking locks when needed and working
 around limitations of git and repo regarding concurrency.
 
-#Download
+
+# Download
 
 Download the repo-mirror tool from the releases page:
 https://github.com/guillon/repo-mirror/releases
@@ -52,28 +53,29 @@ For instance:
     $ wget -O ~/bin/repo-mirror https://raw.githubusercontent.com/guillon/repo-mirror/master/repo-mirror
     $ chmod +x ~/bin/repo-mirror
 
+
 # Examples
 
 A typical usage of such a tool is for automatically setting up
 local mirrors for build scripts or, for a user, automatically
-sharing git repositories between several concurrent repo dirs.
+sharing git repositories between several concurrent repo directories.
 
-For instance a build script uses an envvar REPO (defaulting to repo)
-before each repo command, one can simply set:
+For instance, if a build script uses an envvar REPO,
+one can simply set it to:
 
-    $ REPO="repo-mirror -m $HOME/.repo-mirrors --"; export REPO
+    $ REPO="repo-mirror -m $HOME/.repo-mirror -j8 --"; export REPO
     $ ./build_script.sh
 
 If one wants to make a repo command wrapper such that every invocation
-of repo does automatically mirror repositories,
-it can be done this way:
+of repo does automatically mirror repositories, it can be done this way:
 
     $ cat >$HOME/bin/repo <<EOF
     #!/bin/sh
-    # Execute repo command under the control of repo-mirror
-    # Mirrors dirs stored in ~/.repo-mirrors
-    # Note that the actual repo path must be given with the -r option
-    exec repo-mirror -m $HOME/.repo-mirrors -r /usr/local/bin/repo -- ${1+"$@"}
+    # Execute repo command under the control of repo-mirror.
+    # Mirrors will be stored in $HOME/.repo-mirror as per -m option.
+    # Note that the actual repo path must be given with the -r option.
+    # Mirrors repo sync are done with 8 threads as per -j option.
+    exec repo-mirror -m $HOME/.repo-mirror -r /usr/local/bin/repo -j8 -- ${1+"$@"}
     EOF
     $ chmod +x $HOME/bin/repo
     $ PATH=$HOME/bin:$PATH
@@ -83,6 +85,19 @@ Get the command line help with:
 
     $ repo-mirror --help
     Usage: repo-mirror [options] -- REPO_COMMAND...
+    
+    run repo commands with transparent local git mirrors management.
+    
+    Options:
+      -h, --help            show this help message and exit
+      -m MIRROR_DIR, --mirror-dir=MIRROR_DIR
+                            repo mirror dir, mandatory (for instance: -m $HOME
+                            /.repo-mirror)
+      -j JOBS, --jobs=JOBS  repo mirror sync jobs, passed to repo sync when
+                            fetching mirrors
+      -r REPO, --repo=REPO  repo tool actual executable. Default: repo (as found
+                            in $PATH)
+      ...
 
 
 # Build and Install
@@ -98,7 +113,7 @@ Build with:
 
     $ make all # a no-op actually
 
-Run unittests with:
+Run unit tests with:
 
     $ make -j8 check
 
@@ -121,8 +136,14 @@ https://travis-ci.org/guillon/repo-mirror?branches
 Refer to the code coverage status at:
 https://coveralls.io/r/guillon/repo-mirror?branch=master
 
+Refer to the repo tool documentation at:
+https://source.android.com/source/using-repo.html
+
 
 # License
 
+The tool is distributed under the GPLv2 license.
+
 Refer to the COPYING file: https://github.com/guillon/repo-mirror/blob/master/COPYING
+
 Refer to the COPYRIGHT file: https://github.com/guillon/repo-mirror/blob/master/COPYRIGHT
