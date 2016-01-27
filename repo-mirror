@@ -328,47 +328,61 @@ class RepoMirror():
             self._clean_entry(entry)
         return 0
 
-    def _execute_command(self, command_args, cwd=None, stdin=None, stdout=None, stderr=None):
+    def _execute_command(self, command_args, cwd=None, env=None,
+                         stdin=None, stdout=None, stderr=None):
+        """ Execute the given command args list with options. """
         cmd_str = "cd %s && " % cwd if cwd != None else ""
         cmd_str += " ".join(command_args)
         self.logger.debug("init repo: executing %s..." % cmd_str)
         if self.args.dry_run:
             self.logger.info("dry-run: %s" % cmd_str)
             return 0
-        def setfl(fd, msk=None):
-            if not fd: return
+
+        def setfl(fd, msk):
+            if not msk: return
             flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-            new_flags = msk and (flags | msk) or flags
-            if not fd.closed:
-                fcntl.fcntl(fd, fcntl.F_SETFL, new_flags)
-            return flags
-        logout = (open(stdout, "w") if isinstance(stdout, str)
+            fcntl.fcntl(fd, fcntl.F_SETFL, flags | msk)
+
+        logout = (open(stdout, "wb") if isinstance(stdout, str)
                   else None)
-        logerr = (open(stderr, "w") if isinstance(stderr, str)
+        logerr = (open(stderr, "wb") if isinstance(stderr, str)
                   else None)
+        stdout = (os.fdopen(os.dup(sys.stdout.fileno()), "wb") if logout
+                  else None)
+        stderr = (os.fdopen(os.dup(sys.stderr.fileno()), "wb") if logerr
+                  else None)
+        fdout = subprocess.PIPE if logout else None
+        fderr = subprocess.PIPE if logerr else None
         fdin = (open(stdin, "r") if isinstance(stdin, str)
                 else None)
         code = None
         try:
-            proc = subprocess.Popen(command_args, cwd=cwd, stdin=fdin,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
+            proc = subprocess.Popen(command_args, cwd=cwd, env=env,
+                                    stdin=fdin,
+                                    stdout=fdout,
+                                    stderr=fderr)
+            fds_in = []
             # set flags to get non-blocking read of stdio/stderr
-            setfl(proc.stderr, msk=os.O_NONBLOCK)
-            setfl(proc.stdout, msk=os.O_NONBLOCK)
-            fds_in = [proc.stdout, proc.stderr]
+            if fdout:
+                setfl(proc.stdout, msk=os.O_NONBLOCK)
+                fds_in.append(proc.stdout)
+            if fderr:
+                setfl(proc.stderr, msk=os.O_NONBLOCK)
+                fds_in.append(proc.stderr)
             while fds_in:
                 ready = select.select(fds_in, [], [])[0]
                 for fd in ready:
-                    data = fd.read().decode('utf-8')
+                    data = fd.read()
                     if data:
                         if fd == proc.stdout:
-                            sys.stdout.write(data)
+                            stdout.write(data)
+                            stdout.flush()
                             if logout:
                                 logout.write(data)
                                 logout.flush()
                         else:
-                            sys.stderr.write(data)
+                            stderr.write(data)
+                            stderr.flush()
                             if logerr:
                                 logerr.write(data)
                                 logerr.flush()
@@ -383,6 +397,8 @@ class RepoMirror():
             else:
                 code = ExitCodes.CANNOT_INVOKE
         if fdin: fdin.close()
+        if stdout: stdout.close()
+        if stderr: stderr.close()
         if logout: logout.close()
         if logerr: logerr.close()
         return code
@@ -484,6 +500,12 @@ class RepoMirror():
     def execute_repo(self):
         """ Actually execute wrapped repo commands with optional mirroring. """
 
+        def lang_c_env():
+            """ Returns a copy of the environment with LANG/LC_ALL=C. """
+            env = os.environ.copy()
+            env.update({'LANG': 'C', 'LC_ALL': 'C'})
+            return env
+
         if self.args.mirror_dir == None or self._must_execute_command_as_is():
             command_args = ([self.args.repo, self.args.command] +
                             self.args.arguments)
@@ -521,7 +543,8 @@ class RepoMirror():
                                          cwd=mirrors_dir,
                                          stdin=os.devnull,
                                          stdout=out_file,
-                                         stderr=err_file)
+                                         stderr=err_file,
+                                         env=lang_c_env())
             if code != 0: return code
 
             # Sync mirrored repo
@@ -535,7 +558,8 @@ class RepoMirror():
                                              cwd=mirrors_dir,
                                              stdin=os.devnull,
                                              stdout=out_file,
-                                             stderr=err_file)
+                                             stderr=err_file,
+                                             env=lang_c_env())
                 if code != 0 and self._cleanup_on_sync_error(err_file) == 1:
                     self.logger.debug("attempted to fix last command, re-executing")
                     continue
