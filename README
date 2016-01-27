@@ -19,7 +19,7 @@ for all the repositories of a repo manifest, instead of executing:
     $ repo init -u manifest_url.git
     $ repo sync
 
-on can execute:
+one can execute:
 
     $ repo-mirror -m $HOME/.repo-mirrors -- init -u manifest_url.git
     $ repo sync
@@ -28,7 +28,7 @@ Note that a visible effect on the repo init step is that the output
 will show actually two repo init steps as it will first init/sync the mirror
 and then init/sync the current dir.
 
-The above two commands rougthly behaves as if one have typed:
+The above two commands roughly behave as if one has typed:
 
     $ (cd $HOME/.repo-mirrors/... && repo init --mirror -u manifest_url.git)
     $ (cd $HOME/.repo-mirrors/... && repo sync)
@@ -36,7 +36,8 @@ The above two commands rougthly behaves as if one have typed:
     $ repo sync
 
 Other things are actually done behind the scene such as selecting the
-actual mirrors directory and taking locks where needed to.
+actual mirrors directory, taking locks where needed to and working
+around limitations of git and repo regarding concurrency.
 
 #Download
 
@@ -53,27 +54,29 @@ For instance:
 
 # Examples
 
-A typical usage of such a tool if for automatically setting up
-local mirrors for build scripts.
+A typical usage of such a tool is for automatically setting up
+local mirrors for build scripts or, for a user, automatically
+sharing git repositories between several concurrent repo dirs.
 
-For instance if the build script uses an envvar REPO (defaulting to repo)
-before each repo commands once can simply set:
+For instance a build script uses an envvar REPO (defaulting to repo)
+before each repo command, one can simply set:
 
     $ REPO="repo-mirror -m $HOME/.repo-mirrors --"; export REPO
     $ ./build_script.sh
 
-If one wants to make a repo command wrapper in case such envvar is not
-available, it can be done this way:
+If one wants to make a repo command wrapper such that every invocation
+of repo does automatically mirror repositories,
+it can be done this way:
 
-    $ cat >repo <<EOF
+    $ cat >$HOME/bin/repo <<EOF
     #!/bin/sh
     # Execute repo command under the control of repo-mirror
     # Mirrors dirs stored in ~/.repo-mirrors
     # Note that the actual repo path must be given with the -r option
     exec repo-mirror -m $HOME/.repo-mirrors -r /usr/local/bin/repo -- ${1+"$@"}
     EOF
-    $ chmod +x repo
-    $ PATH=$PWD:$PATH
+    $ chmod +x $HOME/bin/repo
+    $ PATH=$HOME/bin:$PATH
     $ ./build_script.sh
 
 Get the command line help with:
@@ -97,7 +100,7 @@ Build with:
 
 Run unittests with:
 
-    $ make -j4 check
+    $ make -j8 check
 
 Install with, for instance:
 
