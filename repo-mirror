@@ -20,6 +20,7 @@
 # Usage: get usage with repo-mirror -h
 #
 
+from __future__ import print_function
 import sys
 
 # Fail early if python version is not supported
@@ -39,15 +40,11 @@ def interrupt_handler(signum, frame):
     sys.exit(128 + signum)
 signal.signal(signal.SIGINT, interrupt_handler)
 
-import os, subprocess, fcntl, errno, optparse, time, hashlib, logging, tempfile, re, select
+import os, subprocess, fcntl, errno, optparse, time, hashlib, logging, tempfile, re, select, stat
 
 # Update VERSION for major.minor.patch releases.
 # The sha1sum will be appended to the version string.
 VERSION="1.3.1"
-
-# Simplify writing for python 2/3 compatibility
-def printerr(msg):
-    sys.stderr.write("%s\n" % msg)
 
 class ExitCodes:
     """ Exit codes used to feedback the parent process. """
@@ -89,7 +86,7 @@ class LocalOptionParser(optparse.OptionParser):
         Return a single namespace with all arguments.
         """
         if opts.internal_locking not in ["none", "path"]:
-            self.exit(1, "%s: error: invalid locking scheme: --internal-locking=%s\n" %
+            self.exit(1, "%s: error: invalid locking scheme: --internal-locking='%s'\n" %
                       (self.prog, opts.internal_locking))
 
         if opts.clean or opts.clean_all or opts.list:
@@ -154,8 +151,8 @@ parser.add_option("--internal-locking",
                   help="internal option: locking scheme, one of: path, none",
                   default="path")
 
-def mkdir_p(path, dryrun=False, logger=None):
-    cmd_str = "mkdir -p %s" % path
+def mkdir_p(path, dryrun=False, logger=None, mode=None):
+    cmd_str = "mkdir -p '%s'" % path
     if dryrun:
         if logger: logger.info("dry-run: %s" % cmd_str)
         return 0
@@ -166,9 +163,10 @@ def mkdir_p(path, dryrun=False, logger=None):
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
         else: raise # pragma: no cover
+    if mode: os.chmod(path, mode)
 
 def clean_rec(path, dryrun=False, logger=None):
-    cmd_str = "rm -rf %s" % path
+    cmd_str = "rm -rf '%s'" % path
     if dryrun:
         if logger: logger.info("dry-run: %s" % cmd_str)
         return 0
@@ -184,16 +182,16 @@ class Lock:
         self.filename = filename
         self.logger = logger
         self.handle = None
-        if self.logger: self.logger.debug("creating lock %s..." % self.filename)
+        if self.logger: self.logger.debug("creating lock '%s'..." % self.filename)
         mkdir_p(os.path.dirname(filename))
         self.handle = open(filename, 'w')
 
     def acquire(self):
-        if self.logger: self.logger.debug("acquiring lock %s..." % self.filename)
+        if self.logger: self.logger.debug("acquiring lock '%s'..." % self.filename)
         fcntl.flock(self.handle, fcntl.LOCK_EX)
 
     def release(self):
-        if self.logger: self.logger.debug("releasing lock %s." % self.filename)
+        if self.logger: self.logger.debug("releasing lock '%s'." % self.filename)
         fcntl.flock(self.handle, fcntl.LOCK_UN)
 
     def __del__(self):
@@ -231,7 +229,7 @@ class CachePathLock(ICacheLock):
     """ Actually this scheme recursively locks the parent path before """
     """ acquiring the actual path lock. """
     def __init__(self, rootname, dpath, logger=None):
-        if logger: logger.debug("creating CachePathLock %s %s..." % (rootname, dpath))
+        if logger: logger.debug("creating CachePathLock '%s' '%s'..." % (rootname, dpath))
         assert(os.path.normpath(dpath) == dpath)
         assert(dpath[0] == '/')
         mkdir_p(rootname)
@@ -276,11 +274,11 @@ class CachePathLock(ICacheLock):
         return this_lock
 
     def acquire_dir(self):
-        if self.logger: self.logger.debug("acquiring CachePathLock %s %s..." % (self.rootname, self.dpath))
+        if self.logger: self.logger.debug("acquiring CachePathLock '%s' '%s'..." % (self.rootname, self.dpath))
         self.lock = self._acquire_dir_rec(self.dpath)
 
     def release_dir(self):
-        if self.logger: self.logger.debug("releasing CachePathLock %s %s..." % (self.rootname, self.dpath))
+        if self.logger: self.logger.debug("releasing CachePathLock '%s' '%s'..." % (self.rootname, self.dpath))
         if self.lock: self.lock.release()
 
 
@@ -306,7 +304,7 @@ class RepoMirror():
         lock = self.lock_class(self.args.mirror_dir, os.path.join("/", entry), logger=self.logger)
         try:
             lock.acquire_dir()
-            self.logger.debug("cleaning mirror entry %s %s"  % (self.args.mirror_dir, entry))
+            self.logger.debug("cleaning mirror entry '%s' '%s'"  % (self.args.mirror_dir, entry))
             clean_rec(os.path.join(self.args.mirror_dir, entry), self.args.dry_run, self.logger)
         finally:
             lock.release_dir()
@@ -331,7 +329,7 @@ class RepoMirror():
     def _execute_command(self, command_args, cwd=None, env=None,
                          stdin=None, stdout=None, stderr=None):
         """ Execute the given command args list with options. """
-        cmd_str = "cd %s && " % cwd if cwd != None else ""
+        cmd_str = "cd '%s' && " % cwd if cwd != None else ""
         cmd_str += " ".join(command_args)
         self.logger.debug("init repo: executing %s..." % cmd_str)
         if self.args.dry_run:
@@ -390,8 +388,9 @@ class RepoMirror():
                         fds_in.remove(fd)
             code = proc.wait()
         except OSError as e:
-            printerr("repo-mirror: error: failed to run " \
-                          "command: %s : %s" % (e.strerror, " ".join(command_args)))
+            print("repo-mirror: error: failed to run " \
+                  "command: %s : %s" % (e.strerror, " ".join(command_args)),
+                  file=sys.stderr)
             if e.errno == errno.ENOENT:
                 code = ExitCodes.ENOENT
             else:
@@ -491,7 +490,7 @@ class RepoMirror():
                 if m != None and m.group(1) != None:
                     try:
                         os.unlink(m.group(1))
-                        self.logger.debug("removed lock file: %s" % m.group(1))
+                        self.logger.debug("removed lock file: '%s'" % m.group(1))
                         retry = 1
                     except:
                         pass
@@ -516,6 +515,16 @@ class RepoMirror():
         # Fixup init arguments to be passed to repo init --mirror/--reference
         init_arguments = self._fixup_repo_init_arguments(self.args.arguments)
 
+        # Create mirror dir if non existent and set user only permission
+        try:
+            self.logger.debug("creating mirror dir '%s'" % self.args.mirror_dir)
+            mkdir_p(self.args.mirror_dir, self.args.dry_run, self.logger, mode=stat.S_IRWXU)
+        except OSError as e:
+            print("repo-mirror: error:: can't create mirror dir '%s': %s" %
+                  (self.args.mirror_dir, e.strerror),
+                  file=sys.stderr)
+            return ExitCodes.USER
+
         # Case or repo init with mirror dir...
         lock = self.lock_class(self.args.mirror_dir, os.path.join("/", self.args.id), logger=self.logger)
 
@@ -526,7 +535,7 @@ class RepoMirror():
 
             # Prepare repo
             mirrors_dir = os.path.join(mirror_dir_id, "repos")
-            mkdir_p(mirrors_dir, self.args.dry_run, self.logger)
+            mkdir_p(mirrors_dir, self.args.dry_run, self.logger, mode=stat.S_IRWXU)
 
             # Update mirrors configuration
             self._update_mirrors_configs(mirrors_dir)
@@ -591,7 +600,8 @@ class RepoMirror():
             try:
                 log_stream = open(args.log_file, "a", 1)
             except IOError as e:
-                printerr("repo-mirror: error:: can't open log file: %s" % str(e))
+                print("repo-mirror: error:: can't open log file: '%s'" % str(e),
+                      file=sys.stderr)
                 return ExitCodes.USER
         logging.basicConfig(stream = log_stream, level = log_lvl,
                             format = log_fmt)

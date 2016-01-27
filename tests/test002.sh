@@ -30,7 +30,6 @@ TEST_CASE="repo-mirror repo mirror creation test"
 $SRCDIR/tests/scripts/generate_repo.sh repos project1 project2 project1-1:project1/project1-1
 
 # Repo init/sync and verify tree with repo-mirror
-mkdir -p repo-mirrors
 mkdir -p test-repo
 cd test-repo
 $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null

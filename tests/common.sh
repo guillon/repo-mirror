@@ -41,7 +41,7 @@ cleanup() {
   trap - INT QUIT TERM EXIT
   test_cleanup
   cd "$TMPDIR" # ensure not in TMPTEST before cleaning
-  [ -d "$TMPTEST" ] && [ "$KEEPTEST" = 0 ] && [ "$KEEPFAIL" = 0 -o $exit = 0 ] && rm -rf "$TMPTEST"
+  [ -d "$TMPTEST" ] && [ "$KEEPTEST" = 0 ] && [ "$KEEPFAIL" = 0 -o $exit = 0 ] && chmod -R +rwX "$TMPTEST" && rm -rf "$TMPTEST"
   [ $exit -ge 128 ] && interrupted && exit $exit
   [ $_skipped = 1 ] && exit 0
   [ $exit = 0 -a $_xfail = 1 ] && failure_xpass && exit 1
@@ -127,6 +127,7 @@ git_hexversion() {
   printf "0x%.8x" $ver
 }
 
+chmod -R +rwX "$TEST.dir" 2>/dev/null || true
 rm -rf "$TEST.dir"
 [ "$KEEPTEST" != 0 -o "$KEEPFAIL" != 0 ] || TMPTEST=$(mktemp -d $TMPDIR/repo-mirror.XXXXXX)
 [ "$KEEPTEST" = 0 -a "$KEEPFAIL" = 0 ] || TMPTEST=$(mkdir -p "$TEST.dir" && echo "$PWD/$TEST.dir")

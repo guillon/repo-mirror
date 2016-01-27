@@ -147,3 +147,11 @@ wait $pid || res=$?
 [ "$res" = 130 ]
 cat <args.out
 grep -qc "interrupted by signal 2" <args.out
+
+mkdir -p readonly
+chmod a-w readonly
+res=0
+$REPO_MIRROR --mirror-dir=$PWD/readonly/repo-mirror --repo=echo -- init 2>&1 | tee args.out || res=$?
+[ "$res" = 2 ]
+grep -qc "can't create mirror dir" <args.out
+chmod a+w readonly
