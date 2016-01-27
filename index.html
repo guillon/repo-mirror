@@ -36,7 +36,7 @@
 <a href="https://codeclimate.com/github/guillon/repo-mirror"><img src="https://codeclimate.com/github/guillon/repo-mirror/badges/issue_count.svg" alt="Issue Count"></a></p>
 
 <h1>
-<a id="synopsys" class="anchor" href="#synopsys" aria-hidden="true"><span class="octicon octicon-link"></span></a>Synopsys</h1>
+<a id="synopsys" class="anchor" href="#synopsys" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Synopsys</h1>
 
 <p>The repo-mirror utility is a simple command for enabling automatic local
 mirroring of repo git repositories.</p>
@@ -53,7 +53,7 @@ for all the repositories of a repo manifest, instead of executing:</p>
 $ repo sync
 </code></pre>
 
-<p>on can execute:</p>
+<p>one can execute:</p>
 
 <pre><code>$ repo-mirror -m $HOME/.repo-mirrors -- init -u manifest_url.git
 $ repo sync
@@ -63,7 +63,7 @@ $ repo sync
 will show actually two repo init steps as it will first init/sync the mirror
 and then init/sync the current dir.</p>
 
-<p>The above two commands rougthly behaves as if one have typed:</p>
+<p>The above two commands roughly behave as if one has typed:</p>
 
 <pre><code>$ (cd $HOME/.repo-mirrors/... &amp;&amp; repo init --mirror -u manifest_url.git)
 $ (cd $HOME/.repo-mirrors/... &amp;&amp; repo sync)
@@ -72,10 +72,11 @@ $ repo sync
 </code></pre>
 
 <p>Other things are actually done behind the scene such as selecting the
-actual mirrors directory and taking locks where needed to.</p>
+actual mirrors directory, taking locks where needed to and working
+around limitations of git and repo regarding concurrency.</p>
 
 <h1>
-<a id="download" class="anchor" href="#download" aria-hidden="true"><span class="octicon octicon-link"></span></a>Download</h1>
+<a id="download" class="anchor" href="#download" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Download</h1>
 
 <p>Download the repo-mirror tool from the releases page:
 <a href="https://github.com/guillon/repo-mirror/releases">https://github.com/guillon/repo-mirror/releases</a></p>
@@ -90,30 +91,32 @@ $ chmod +x ~/bin/repo-mirror
 </code></pre>
 
 <h1>
-<a id="examples" class="anchor" href="#examples" aria-hidden="true"><span class="octicon octicon-link"></span></a>Examples</h1>
+<a id="examples" class="anchor" href="#examples" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Examples</h1>
 
-<p>A typical usage of such a tool if for automatically setting up
-local mirrors for build scripts.</p>
+<p>A typical usage of such a tool is for automatically setting up
+local mirrors for build scripts or, for a user, automatically
+sharing git repositories between several concurrent repo dirs.</p>
 
-<p>For instance if the build script uses an envvar REPO (defaulting to repo)
-before each repo commands once can simply set:</p>
+<p>For instance a build script uses an envvar REPO (defaulting to repo)
+before each repo command, one can simply set:</p>
 
 <pre><code>$ REPO="repo-mirror -m $HOME/.repo-mirrors --"; export REPO
 $ ./build_script.sh
 </code></pre>
 
-<p>If one wants to make a repo command wrapper in case such envvar is not
-available, it can be done this way:</p>
+<p>If one wants to make a repo command wrapper such that every invocation
+of repo does automatically mirror repositories,
+it can be done this way:</p>
 
-<pre><code>$ cat &gt;repo &lt;&lt;EOF
+<pre><code>$ cat &gt;$HOME/bin/repo &lt;&lt;EOF
 #!/bin/sh
 # Execute repo command under the control of repo-mirror
 # Mirrors dirs stored in ~/.repo-mirrors
 # Note that the actual repo path must be given with the -r option
 exec repo-mirror -m $HOME/.repo-mirrors -r /usr/local/bin/repo -- ${1+"$@"}
 EOF
-$ chmod +x repo
-$ PATH=$PWD:$PATH
+$ chmod +x $HOME/bin/repo
+$ PATH=$HOME/bin:$PATH
 $ ./build_script.sh
 </code></pre>
 
@@ -124,7 +127,7 @@ Usage: repo-mirror [options] -- REPO_COMMAND...
 </code></pre>
 
 <h1>
-<a id="build-and-install" class="anchor" href="#build-and-install" aria-hidden="true"><span class="octicon octicon-link"></span></a>Build and Install</h1>
+<a id="build-and-install" class="anchor" href="#build-and-install" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Build and Install</h1>
 
 <p>This tool requires python 2.6.x, 2.7.x or &gt;= 3.x.</p>
 
@@ -140,7 +143,7 @@ directly repo-mirror where downloaded.</p>
 
 <p>Run unittests with:</p>
 
-<pre><code>$ make -j4 check
+<pre><code>$ make -j8 check
 </code></pre>
 
 <p>Install with, for instance:</p>
@@ -149,7 +152,7 @@ directly repo-mirror where downloaded.</p>
 </code></pre>
 
 <h1>
-<a id="references" class="anchor" href="#references" aria-hidden="true"><span class="octicon octicon-link"></span></a>References</h1>
+<a id="references" class="anchor" href="#references" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>References</h1>
 
 <p>Refer to the project home page at:
 <a href="http://guillon.github.com/repo-mirror">http://guillon.github.com/repo-mirror</a></p>
@@ -164,7 +167,7 @@ directly repo-mirror where downloaded.</p>
 <a href="https://coveralls.io/r/guillon/repo-mirror?branch=master">https://coveralls.io/r/guillon/repo-mirror?branch=master</a></p>
 
 <h1>
-<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h1>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>License</h1>
 
 <p>Refer to the COPYING file: <a href="https://github.com/guillon/repo-mirror/blob/master/COPYING">https://github.com/guillon/repo-mirror/blob/master/COPYING</a>
 Refer to the COPYRIGHT file: <a href="https://github.com/guillon/repo-mirror/blob/master/COPYRIGHT">https://github.com/guillon/repo-mirror/blob/master/COPYRIGHT</a></p>
