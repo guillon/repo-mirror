@@ -68,6 +68,7 @@ class LocalOptionParser(optparse.OptionParser):
             description="run repo commands with transparent local git mirrors management.",
             usage="%prog [options] -- REPO_COMMAND..."
         )
+        self.disable_interspersed_args()
 
     def parse_args(self):
         opts, args = optparse.OptionParser.parse_args(self)
