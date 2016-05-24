@@ -64,11 +64,6 @@ $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --list 2>&1 | tee args.out || res=$?
 [ "$res" = 0 ]
 
 res=0
-$REPO_MIRROR --list 2>&1 | tee args.out || res=$?
-head -n1 <args.out | grep -qc 'missing mirror dir argument'
-[ "$res" = 2 ]
-
-res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --repo=echo --list -- hello 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'unexpected additional arguments'
 [ "$res" = 2 ]
@@ -78,11 +73,6 @@ $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --clean 2>&1 | tee args.out || res=$?
 [ "$res" = 0 ]
 
 res=0
-$REPO_MIRROR --clean 2>&1 | tee args.out || res=$?
-head -n1 <args.out | grep -qc 'missing mirror dir argument'
-[ "$res" = 2 ]
-
-res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --repo=echo --clean -- hello 2>&1 | tee args.out || res=$?
 head -n1 <args.out | grep -qc 'unexpected additional arguments'
 [ "$res" = 2 ]
@@ -90,11 +80,6 @@ head -n1 <args.out | grep -qc 'unexpected additional arguments'
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --clean-all 2>&1 | tee args.out || res=$?
 [ "$res" = 0 ]
-
-res=0
-$REPO_MIRROR --clean-all 2>&1 | tee args.out || res=$?
-head -n1 <args.out | grep -qc 'missing mirror dir argument'
-[ "$res" = 2 ]
 
 res=0
 $REPO_MIRROR --mirror-dir=$PWD/repo-mirror --repo=echo --clean-all -- hello 2>&1 | tee args.out || res=$?

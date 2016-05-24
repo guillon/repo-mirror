@@ -90,11 +90,16 @@ class LocalOptionParser(optparse.OptionParser):
             self.exit(1, "%s: error: invalid locking scheme: --internal-locking='%s'\n" %
                       (self.prog, opts.internal_locking))
 
+        if not opts.mirror_dir:
+            home = os.environ.get('HOME', None)
+            if home:
+                opts.mirror_dir = os.path.join(home, ".repo-mirror")
+            else:
+                self.exit(1, "%s: error: $HOME undefined, please specify a mirror dir argument (--mirror-dir MIRROR_DIR)\n" % self.prog)
+
         if opts.clean or opts.clean_all or opts.list:
             if len(args) > 0:
                 self.exit(1, "%s: error: unexpected additional arguments for --list or --clean or --clean-all action\n")
-            if not opts.mirror_dir:
-                self.exit(1, "%s: error: missing mirror dir argument: --mirror-dir=<dir>\n")
         else:
             if len(args) < 1:
                 self.exit(1, "%s: error: missing repo arguments\n" % self.prog)
@@ -113,7 +118,7 @@ class LocalOptionParser(optparse.OptionParser):
 parser = LocalOptionParser()
 
 parser.add_option("-m", "--mirror-dir",
-                  help="repo mirror dir, mandatory (for instance: -m $HOME/.repo-mirror)")
+                  help="repo mirror dir (default: $HOME/.repo-mirror)")
 parser.add_option("-j", "--jobs",
                   type=int, default=0,
                   help="repo mirror sync jobs, passed to repo sync when fetching mirrors")

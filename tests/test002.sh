@@ -32,8 +32,8 @@ $SRCDIR/tests/scripts/generate_repo.sh repos project1 project2 project1-1:projec
 # Repo init/sync and verify tree with repo-mirror
 mkdir -p test-repo
 cd test-repo
-$REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
-$REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- sync 
+env HOME=$TMPTEST $REPO_MIRROR -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
+$REPO_MIRROR -m "$TMPTEST/.repo-mirror" -d -q -- sync
 [ -f project1/README ]
 [ -f project2/README ]
 [ -f project1/project1-1/README ]
@@ -41,21 +41,21 @@ $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- sync
 # Verify that all projects have an alternate pointing to default mirror
 # and empty object pack
 [ -f project1/.git/objects/info/alternates ]
-[ "$(<project1/.git/objects/info/alternates)" = "$TMPTEST/repo-mirrors/default/repos/project1.git/objects" ]
+[ "$(<project1/.git/objects/info/alternates)" = "$TMPTEST/.repo-mirror/default/repos/project1.git/objects" ]
 [ -f project2/.git/objects/info/alternates ]
-[ "$(<project2/.git/objects/info/alternates)" = "$TMPTEST/repo-mirrors/default/repos/project2.git/objects" ]
+[ "$(<project2/.git/objects/info/alternates)" = "$TMPTEST/.repo-mirror/default/repos/project2.git/objects" ]
 [ -f project1/project1-1/.git/objects/info/alternates ]
-[ "$(<project1/project1-1/.git/objects/info/alternates)" = "$TMPTEST/repo-mirrors/default/repos/project1-1.git/objects" ]
+[ "$(<project1/project1-1/.git/objects/info/alternates)" = "$TMPTEST/.repo-mirror/default/repos/project1-1.git/objects" ]
 
 # Verify that objects are not there but in the mirror actually
 obj=$(env GIT_DIR=project1/.git git rev-parse HEAD)
 [ ! -f project1/.git/objects/${obj::2}/${obj:2} ]
-[ -f "$TMPTEST"/repo-mirrors/default/repos/project1.git/objects/${obj::2}/${obj:2} ]
+[ -f "$TMPTEST"/.repo-mirror/default/repos/project1.git/objects/${obj::2}/${obj:2} ]
 obj=$(env GIT_DIR=project2/.git git rev-parse HEAD)
 [ ! -f project2/.git/objects/${obj::2}/${obj:2} ]
-[ -f "$TMPTEST"/repo-mirrors/default/repos/project2.git/objects/${obj::2}/${obj:2} ]
+[ -f "$TMPTEST"/.repo-mirror/default/repos/project2.git/objects/${obj::2}/${obj:2} ]
 obj=$(env GIT_DIR=project1/project1-1/.git git rev-parse HEAD)
 [ ! -f project1/project1-1/.git/objects/${obj::2}/${obj:2} ]
-[ -f "$TMPTEST"/repo-mirrors/default/repos/project1-1.git/objects/${obj::2}/${obj:2} ]
+[ -f "$TMPTEST"/.repo-mirror/default/repos/project1-1.git/objects/${obj::2}/${obj:2} ]
 
 
