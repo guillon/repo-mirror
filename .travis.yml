@@ -6,6 +6,7 @@ python:
 env:
   - REPO_VERSION=1.21
   - REPO_VERSION=1.22
+  - REPO_VERSION=1.23
 install:
   - pip install -r tests/requirements_pip.txt
   - pip install coveralls || true
