@@ -8,11 +8,11 @@ env:
   - REPO_VERSION=1.22
 install:
   - pip install -r tests/requirements_pip.txt
-  - pip install coveralls
+  - pip install coveralls || true
 script:
-  - make V=1 DEBUGTEST=1 COVERAGE=1 REPO_VERSION=$REPO_VERSION check
+  - if python -m coveralls --version; then make V=1 DEBUGTEST=1 COVERAGE=1 REPO_VERSION=$REPO_VERSION check; else make V=1 DEBUGTEST=1 COVERAGE=0 REPO_VERSION=$REPO_VERSION check; fi
 after_success:
-  - (cd tests/coverage && coveralls --rcfile=coverage.rc)
+  - ! python -m coveralls --version || (cd tests/coverage && coveralls --rcfile=coverage.rc)
 deploy:
   provider: releases
   api_key:
