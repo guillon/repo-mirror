@@ -333,7 +333,8 @@ class RepoMirror():
         return 0
 
     def _execute_command(self, command_args, cwd=None, env=None,
-                         stdin=None, stdout=None, stderr=None):
+                         stdin=None, stdout=None, stderr=None,
+                         no_input=False, no_output=False):
         """ Execute the given command args list with options. """
         cmd_str = "cd '%s' && " % cwd if cwd != None else ""
         cmd_str += " ".join(command_args)
@@ -347,30 +348,35 @@ class RepoMirror():
             flags = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, flags | msk)
 
-        logout = (open(stdout, "wb") if isinstance(stdout, str)
-                  else None)
-        logerr = (open(stderr, "wb") if isinstance(stderr, str)
-                  else None)
-        stdout = (os.fdopen(os.dup(sys.stdout.fileno()), "wb") if logout
-                  else None)
-        stderr = (os.fdopen(os.dup(sys.stderr.fileno()), "wb") if logerr
-                  else None)
-        fdout = subprocess.PIPE if logout else None
-        fderr = subprocess.PIPE if logerr else None
-        fdin = (open(stdin, "r") if isinstance(stdin, str)
-                else None)
+        streams_map = {}
+        for ids, filename, iostream in [('out', stdout, sys.stdout),
+                                        ('err', stderr, sys.stderr)]:
+            outs = []
+            if not no_output and filename == None:
+                fd = None
+            else:
+                fd = subprocess.PIPE
+                if filename != None:
+                    outs.append(open(filename, "wb"))
+                    if not no_output:
+                        outs.append(os.fdopen(os.dup(iostream.fileno()), "wb"))
+            streams_map[ids] = {'fd': fd, 'outs': outs}
+        if no_input:
+            fdin = open(os.devnull, "r")
+        else:
+            fdin = open(stdin, "r") if stdin != None else None
         code = None
         try:
             proc = subprocess.Popen(command_args, cwd=cwd, env=env,
                                     stdin=fdin,
-                                    stdout=fdout,
-                                    stderr=fderr)
+                                    stdout=streams_map['out']['fd'],
+                                    stderr=streams_map['err']['fd'])
             fds_in = []
             # set flags to get non-blocking read of stdio/stderr
-            if fdout:
+            if streams_map['out']['fd']:
                 setfl(proc.stdout, msk=os.O_NONBLOCK)
                 fds_in.append(proc.stdout)
-            if fderr:
+            if streams_map['err']['fd']:
                 setfl(proc.stderr, msk=os.O_NONBLOCK)
                 fds_in.append(proc.stderr)
             while fds_in:
@@ -378,18 +384,10 @@ class RepoMirror():
                 for fd in ready:
                     data = fd.read()
                     if data:
-                        if fd == proc.stdout:
-                            stdout.write(data)
-                            stdout.flush()
-                            if logout:
-                                logout.write(data)
-                                logout.flush()
-                        else:
-                            stderr.write(data)
-                            stderr.flush()
-                            if logerr:
-                                logerr.write(data)
-                                logerr.flush()
+                        ids = 'out' if fd == proc.stdout else 'err'
+                        for out in streams_map[ids]['outs']:
+                            out.write(data)
+                            out.flush()
                     else:
                         fds_in.remove(fd)
             code = proc.wait()
@@ -402,14 +400,14 @@ class RepoMirror():
             else:
                 code = ExitCodes.CANNOT_INVOKE
         if fdin: fdin.close()
-        if stdout: stdout.close()
-        if stderr: stderr.close()
-        if logout: logout.close()
-        if logerr: logerr.close()
+        for ids in streams_map:
+            for out in streams_map[ids]['outs']:
+                out.close()
         return code
 
     def _update_mirror_config(self, gitdir):
         """ Update a git mirror config file to be in --prune mode by default. """
+        self.logger.debug("init repo: update mirror config: at %s" % gitdir)
         configfile = os.path.join(gitdir, "config")
         if os.path.exists(configfile):
             command_args = ['git', 'config', '-f', configfile,
@@ -418,11 +416,48 @@ class RepoMirror():
 
     def _update_mirrors_configs(self, mirrors_dir):
         """ Update all git mirrors present in the repo mirror tree. """
+        self._walk_mirrors_repos(mirrors_dir, self._update_mirror_config)
+
+    def _fixup_mirror_repo(self, gitdir):
+        """ Fixup a git mirror dir w.r.t. some know invalid state.
+        The HEAD of the mirrored repo may be corrupted for some reason,
+        including an invalid sha1 in a manifest file for instance.
+        In this case, repo will fail to update the mirror, hence we
+        first arrange to have well-formed HEAD reference, the actual
+        reference will be set on the following repo sync command.
+        """
+        self.logger.debug("init repo: fixup mirror repo: at %s" % gitdir)
+        headfile = os.path.join(gitdir, 'HEAD')
+        headref = ''
+        wellformed_headref = 'ref: refs/heads/master'
+        try:
+            with open(headfile, "r") as inf:
+                headref = inf.read().rstrip()
+        except (OSError, IOError) as e:
+            return # don't try to fixup if not existing/readable
+        if ((re.match(r'^ref: +refs/', headref) or
+             re.match('^[0-9a-f]{40}', headref)) and
+            (headref == wellformed_headref or
+             self._execute_command(['git', 'rev-parse', '--verify', 'HEAD'],
+                                   no_input=True, no_output=True,
+                                   cwd=gitdir) == 0)):
+                return
+        self.logger.debug("init repo: fixup mirror repo: fix corrupted HEAD reference '%s' to '%s': %s" %
+                          (headref, wellformed_headref, headfile))
+        with open(headfile, "w", 1) as outf:
+            outf.write('%s\n' % wellformed_headref)
+
+    def _fixup_mirrors_repos(self, mirrors_dir):
+        """ Fixup all git mirrors present in the repo mirror tree. """
+        self._walk_mirrors_repos(mirrors_dir, self._fixup_mirror_repo)
+
+    def _walk_mirrors_repos(self, mirrors_dir, action):
+        """ Walk all mirrored repos and apply action(<path>) to each. """
         dirs = []
         for root, dirs, files in os.walk(mirrors_dir):
             break
         for gitdir in filter(lambda x: x.endswith(".git"), dirs):
-            self._update_mirror_config(os.path.join(mirrors_dir, gitdir))
+            action(os.path.join(mirrors_dir, gitdir))
 
     def _append_options(self, args, append_opts):
         opts = []
@@ -543,6 +578,9 @@ class RepoMirror():
             mirrors_dir = os.path.join(mirror_dir_id, "repos")
             mkdir_p(mirrors_dir, self.args.dry_run, self.logger, mode=stat.S_IRWXU)
 
+            # Fixup some known errors
+            self._fixup_mirrors_repos(mirrors_dir)
+
             # Update mirrors configuration
             self._update_mirrors_configs(mirrors_dir)
 
@@ -556,7 +594,7 @@ class RepoMirror():
             clean_rec(os.path.join(mirrors_dir, ".repo"), self.args.dry_run, self.logger)
             code = self._execute_command(command_args,
                                          cwd=mirrors_dir,
-                                         stdin=os.devnull,
+                                         no_input=True,
                                          stdout=out_file,
                                          stderr=err_file,
                                          env=lang_c_env())
@@ -571,7 +609,7 @@ class RepoMirror():
             while True:
                 code = self._execute_command(command_args,
                                              cwd=mirrors_dir,
-                                             stdin=os.devnull,
+                                             no_input=True,
                                              stdout=out_file,
                                              stderr=err_file,
                                              env=lang_c_env())

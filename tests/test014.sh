@@ -40,10 +40,9 @@ popd
 echo "da39a3ee5e6b4b0d3255bfef95601890afd80709X" | tee repo-mirrors/default/repos/project1.git/HEAD
 
 # Run a second repo-mirror init, repo may fail to init on Invalid HEAD
-# Currently expected to fail on "unable to resolve reference HEAD: Invalid argument"
+# repo-mirror corrects this error by setting a well formed HEAD reference before mirror sync
 mkdir test-2
 pushd test-2
 res=0
-$REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null 2>&1 | tee error.log || res=$?
-[ "$res" != 0 ] || echo "WARNING: Expected to FAIL but PASSES"
+$REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
 popd
