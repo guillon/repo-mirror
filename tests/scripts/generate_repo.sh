@@ -48,12 +48,14 @@ cat >"$tmpdir"/default.xml <<EOF
 EOF
 
 # Create gits and include them in manifest
-for pair in "$@"; do
-  project=$(echo "$pair" | cut -f1 -d:)
-  path=$(echo "$pair" | cut -f2 -d:)
+for spec in "$@"; do
+  project=$(echo "$spec" | awk '{print $1;}' FS=:) # project name
+  path=$(echo "$spec" | awk '{print $2;}' FS=:) # project path or default (name/)
+  rev=$(echo "$spec" | awk '{print $3;}' FS=:) # branch name or HEAD for actual HEAD revision or default (master)
   [ -n "$path" ] || path="$project"
-  "$dirname"/generate_git.sh "$dir"/"$project".git
-  echo "  <project name=\"$project\" path=\"$path\"/>" >>"$tmpdir"/default.xml
+  "$dirname"/generate_git.sh "$dir/$project.git"
+  [ "$rev" != "HEAD" ] || rev=$(cd "$dir/$project.git" && git rev-parse "$rev")
+  echo "  <project name=\"$project\" path=\"$path\"${rev:+ revision=\"$rev\"}/>" >>"$tmpdir"/default.xml
 done
 
 # Create manifest footer
