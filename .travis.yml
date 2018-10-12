@@ -1,23 +1,25 @@
 language: python
 python:
-  - '2.6'
-  - '2.7'
-  - '3.3'
+- '2.6'
+- '2.7'
+- '3.3'
 env:
-  - REPO_VERSION=1.21
-  - REPO_VERSION=1.22
-  - REPO_VERSION=1.23
+- REPO_VERSION=1.21
+- REPO_VERSION=1.22
+- REPO_VERSION=1.23
 install:
-  - pip install -r tests/requirements_pip.txt
-  - pip install coveralls || true
+- pip install -r tests/requirements_pip.txt
+- pip install coveralls || true
 script:
-  - if python -m coveralls --version; then make V=1 DEBUGTEST=1 COVERAGE=1 REPO_VERSION=$REPO_VERSION check; else make V=1 DEBUGTEST=1 COVERAGE=0 REPO_VERSION=$REPO_VERSION check; fi
+- if python -m coveralls --version; then make V=1 DEBUGTEST=1 COVERAGE=1 REPO_VERSION=$REPO_VERSION
+  check; else make V=1 DEBUGTEST=1 COVERAGE=0 REPO_VERSION=$REPO_VERSION check; fi
 after_success:
-  - ! python -m coveralls --version || (cd tests/coverage && coveralls --rcfile=coverage.rc)
+- if python -m coveralls --version; then cd tests/coverage && coveralls --rcfile=coverage.rc;
+  fi
 deploy:
   provider: releases
   api_key:
-    secure: YmfKzAD9JUMlk+6oSZsIcE1U2ZS41WxzUK1F6MGzazqcv3qnjsUFsqyEvUuN0jy8YA8eunpq4TWkkHos4R7Ubx62nIIrcHEFayyIk1zbjDHTyMqiwsndCfS2yXMY42TfLvECKW4d03Dd66gtcKMcnyguFr1siJ58OitHZ2P6Xkx7ICFVXY8F+CGQTw3ufq29geRmI6PGNMCJhNHdyRYm56WBQAKbIUdFjFo6YvvthkIjs65POrKL1D5kw8oGRGhWb+KR4sTlMfUZdmCNd6puyO9D7oIL94c74ZyxavOwPNgojfZfQSXqVKzL01K/DCvZIcxv+WGpzUdKaMBazKuTTg7OMvoNczddhEZ0+Pem8oc/3rP+vsicIpU12sGsbuV/ywZP5HzRGCY81Qfm3H2JBEIwzCI6pfBpbmdTa3eeKbYR45f+sy46rOy0t+NZnDRmqpRuPS4Tko+AkCiOCJJyz9FeJae9vefLT1Ag2mp+O0AjRF0ytrQ3Pc31HFEPnpxm3iWG9shx2W06BLz4MgcINmlYPenfYQSV6ER26K+Kywp0BH++cHIUm1JruxQAKAiYHpUYN3ceIhszTIUC4eeUlszOjwdRV9Hzmm3GXB7WBr+tp1lCDxya+P+y51iO1PwQ08o5so/5Dl4XsjodWs/O90zm4d82a76l86mVoYhF+k4=
+    secure: XpQa+YyL52uL83H0/L7rSY169dBm2KtIgcyBNvNypkfVs8hVEmZCVChlVa0atc+n74sS3sJVihCZzMs+5xFkfR4izplFnDksdXBJeeSAPKfbaSVFLxEXnVk6AtsO7QmCZ1Cg0NvYDLSBKugbcWMpxTFmn6IXxHrapbReIa2W+L1Vuc5vHrIQ8uJ25sO0cfip6M+r6UVgF46FCo1OrRz3kUdw29TcKr5OTUhsZffAmfMoRIeYs7pCl5MvOwhRO6kdXupFfaeY47qGWmuMkrf1yVU11UeI5I2VVfkGdzLvwnrZcOPjSpNQhnYhaidMbN6ljEbKsJfSC2eE54ywtDZJ7kpyWECiipmLskvMXZ1W0Udyo21WBTAvxSV/5+wop7GDLVQh4PHcgGjDO1r4MJAc83+kRuoPyz+QmUf1KRLM5hhehpEyRRA6eQ25MAjj60YEp0hKg747eJUpDypj2WOs3hJPkWFGvedwTTEi2pXz9fKvJbm610r76rDc23VgG8XFJgxsj2urVuRs4tGCOSIDijp7IjbQtJ/nUh88Cx7ZzUZPiIq2hyGfUw/+2CXphRcbDlVgCKoOz4XQypVxJC19YdwaHYXoauyZleTQIURCuw8LYtD+oSsui01Z/Er3Zxbt92n8TBrJw0Ip0cAuz736om0CzF0MsuzfKNsND7vXfAo=
   file: repo-mirror
   on:
     repo: guillon/repo-mirror
