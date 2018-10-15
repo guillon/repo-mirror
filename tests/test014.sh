@@ -43,6 +43,16 @@ echo "da39a3ee5e6b4b0d3255bfef95601890afd80709X" | tee repo-mirrors/default/repo
 # repo-mirror corrects this error by setting a well formed HEAD reference before mirror sync
 mkdir test-2
 pushd test-2
-res=0
 $REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null
 popd
+
+# Remove HEAD completly, this is invalid, though in this case, repo-mirror
+# does not attempt any recovery
+rm repo-mirrors/default/repos/project1.git/HEAD
+mkdir test-3
+pushd test-3
+res=0
+$REPO_MIRROR -m "$TMPTEST/repo-mirrors" -d -q -- init -u file://"$TMPTEST"/repos/manifests.git </dev/null 2>&1 | tee error.log || res=$?
+popd
+# In this case normally repo should fail to recognize the mirrored repo as a git repository
+[ "$res" != 0 ] && grep -i -w -q "Not a git repository" test-3/error.log
