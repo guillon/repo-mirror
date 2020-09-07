@@ -1,6 +1,6 @@
 language: python
 python:
-- '2.6'
+# - '2.6' # python 2.6 not available anymore on travis
 - '2.7'
 - '3.6'
 - '3.8'
