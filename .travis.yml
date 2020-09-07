@@ -2,11 +2,12 @@ language: python
 python:
 - '2.6'
 - '2.7'
-- '3.3'
+- '3.6'
+- '3.8'
 env:
-- REPO_VERSION=1.21
 - REPO_VERSION=1.22
-- REPO_VERSION=1.23
+- REPO_VERSION=1.27
+- REPO_VERSION=2.8
 install:
 - pip install -r tests/requirements_pip.txt
 - pip install coveralls || true
@@ -24,5 +25,5 @@ deploy:
   on:
     repo: guillon/repo-mirror
     tags: true
-    python: '2.6'
-    condition: $REPO_VERSION = 1.21
+    python: '3.6'
+    condition: $REPO_VERSION = 2.8
