@@ -101,7 +101,7 @@ xfail() {
  _xfail=1
 }
 
-is_repo2() {
+is_repo1() {
   local repover
   local repo
   local major
@@ -110,7 +110,7 @@ is_repo2() {
   repover=$(grep ^VERSION "$repo" || true)
   [ -n "$repover" ] || return 1
   major=$(python -c $'import sys\n'"$repover"$'\nsys.stdout.write(str(VERSION[0]))\n')
-  [ "$major" -gt 1 ] || return 1
+  [ "$major" -le 1 ] || return 1
   return 0
 }
 
@@ -124,9 +124,8 @@ is_python3() {
 }
 
 is_python3_repo1() {
-  is_python3 || return 0
-  is_repo2 || return 0
-  return 1
+  is_python3 && is_repo1 || return 1
+  return 0
 }
 
 git_hexversion() {
