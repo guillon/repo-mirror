@@ -23,8 +23,8 @@ source `dirname $0`/common.sh
 
 TEST_CASE="repo-mirror repo mirror creation test"
 
-# Skip python 3 not supported by repo
-! is_python3 || skip "python 3 not supported by repo"
+# Skip python 3 not supported by repo 1
+! is_python3_repo1 || skip "python 3 not supported by repo 1"
 
 # Generate a repo/git structure
 $SRCDIR/tests/scripts/generate_repo.sh repos project1 project2 project1-1:project1/project1-1

@@ -23,8 +23,8 @@ source `dirname $0`/common.sh
 
 TEST_CASE="repo-mirror repo-mirror prune local branches"
 
-# Skip python 3 not supported by repo
-! is_python3 || skip "python 3 not supported by repo"
+# Skip python 3 not supported by repo 1
+! is_python3_repo1 || skip "python 3 not supported by repo 1"
 
 # Skip if git version < 1.9.0 as repo-mirror pruning is not supported in this case
 [ $(printf "%d" $(git_hexversion)) -ge $(printf "%d" 0x01090000) ] || skip "git < 1.9.0, pruning is not supported"

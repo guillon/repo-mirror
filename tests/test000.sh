@@ -36,8 +36,9 @@ which git
 git --version
 
 # Check whether repo is installed (skip as not working on python 3)
-if ! is_python3; then
-  which repo
+which python
+which repo
+if ! is_python3_repo1; then
   mkdir repo-test
   pushd repo-test >/dev/null
   # init will fail as url is not specified, though it is fine for getting the repo version
