@@ -1,13 +1,17 @@
 language: python
-python:
-# - '2.6' # python 2.6 not available anymore on travis
-- '2.7'
-- '3.6'
-- '3.8'
-env:
-- REPO_VERSION=1.22
-- REPO_VERSION=1.27
-- REPO_VERSION=2.8
+jobs:
+# python 2.6 not available anymore on travis
+# repo 2.8 does not work weel with virtualenv python2
+# Only test valid combinations for now
+  include:
+  - python: "2.7"
+    env: REPO_VERSION=1.22
+  - python: "2.7"
+    env: REPO_VERSION=1.27
+  - python: "3.6"
+    env: REPO_VERSION=2.8
+  - python: "3.8"
+    env: REPO_VERSION=2.8
 install:
 - pip install -r tests/requirements_pip.txt
 - pip install coveralls || true
